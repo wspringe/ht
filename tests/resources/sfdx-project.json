@@ -1,0 +1,41 @@
+{
+  "namespace": "",
+  "sfdcLoginUrl": "https://login.salesforce.com",
+  "sourceApiVersion": "61.0",
+  "packageDirectories": [
+    {
+      "path": "util",
+      "default": true,
+      "package": "Expense Manager - Util",
+      "versionName": "Summer ‘24",
+      "versionDescription": "Welcome to Summer 2024 Release of Expense Manager Util Package",
+      "versionNumber": "4.7.0.NEXT",
+      "definitionFile": "config/scratch-org-def.json"
+    },
+    {
+      "path": "exp-core",
+      "default": false,
+      "package": "Expense Manager",
+      "versionName": "v 3.2",
+      "versionDescription": "Summer 2024 Release",
+      "versionNumber": "3.2.0.NEXT",
+      "postInstallUrl": "https://expenser.com/post-install-instructions.html",
+      "releaseNotesUrl": "https://expenser.com/summer-2024-release-notes.html",
+      "definitionFile": "config/scratch-org-def.json",
+      "dependencies": [
+        {
+          "package": "A",
+          "versionNumber": "1.0"
+        },
+        {
+          "package": "B@2.0"
+        }
+      ]
+    }
+  ],
+  "packageAliases": {
+    "A": "04tB00000000000000",
+    "B@2.0": "04tB00000000000001",
+    "Expense Manager": "0HoB00000004CFuKAM"
+  }
+}
