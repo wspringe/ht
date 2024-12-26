@@ -32,6 +32,7 @@ struct Dependency {
 #[derive(Debug)]
 pub struct ProjectConfig {
     name: String,
+    paths: Vec<String>,
     packages: Vec<Package>,
     unpackaged_metadata_path: Option<String>,
 }
@@ -52,6 +53,9 @@ impl ProjectConfig {
     }
     pub fn get_unpackaged_metadata_path(&self) -> &Option<String> {
         &self.unpackaged_metadata_path
+    }
+    pub fn get_paths(&self) -> &Vec<String> {
+        &self.paths
     }
 }
 
