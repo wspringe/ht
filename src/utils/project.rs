@@ -1,5 +1,9 @@
 use std::{ffi::OsStr, fs};
 
+use anyhow::Result;
+
+use super::{sf, system};
+
 enum ScriptType {
     Shell,
     Apex,
@@ -11,7 +15,33 @@ struct Script {
     s_type: ScriptType,
 }
 
-pub fn get_predeploy_scripts() -> Vec<Script> {
+pub fn exec_predeploy_scripts() {
+    let scripts = get_predeploy_scripts();
+    exec_scripts(scripts);
+}
+
+fn exec_scripts(scripts: Vec<Script>) {
+    for script in scripts {
+        match script.s_type {
+            ScriptType::Apex => {
+                sf::exec_anonymous(&script.path);
+            }
+            ScriptType::Shell => {
+                system::exec_script(&script.path);
+            }
+            ScriptType::Unknown => {
+                println!("Script is not an accepted type")
+            }
+        }
+    }
+}
+
+pub fn exec_postdeploy_scripts() {
+    let scripts = get_postdeploy_scripts();
+    exec_scripts(scripts);
+}
+
+fn get_predeploy_scripts() -> Vec<Script> {
     let paths = fs::read_dir("deploy/pre").expect("Did not find a deploy/pre directory");
     get_scripts(paths)
 }

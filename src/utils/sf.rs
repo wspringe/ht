@@ -1,4 +1,4 @@
-use std::{fs::File, process::Command};
+use std::process::Command;
 // TODO: make this into a builder? return results from each fn
 
 pub fn verify_cli_is_installed() {
@@ -34,14 +34,14 @@ pub fn delete_old_scratch(scratch_name: &String) {
         .expect("Could not delete old scratch org");
 }
 
-pub fn auth_devhub(path_to_auth_file: String) {
+pub fn auth_devhub(path_to_auth_file: &String) {
     Command::new("sf")
         .args([
             "org",
             "login",
             "sfdx-url",
             "--sfdx-url-file",
-            &path_to_auth_file,
+            path_to_auth_file,
         ])
         .spawn()
         .expect("Could not authorize to a Dev Hub");
@@ -52,4 +52,11 @@ pub fn project_deploy(path: &String) {
         .args(["project", "deploy", "start", "-d", path])
         .spawn()
         .expect("Could not deploy metadata");
+}
+
+pub fn exec_anonymous(path: &String) {
+    Command::new("sf")
+        .args(["apex", "run", "--file", path])
+        .spawn()
+        .expect("Could not execute apex file");
 }

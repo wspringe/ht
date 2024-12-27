@@ -22,14 +22,14 @@ pub fn run(devhub: &Option<String>, delete_old: &bool, project_config: &ProjectC
         );
     }
 
-    project::get_predeploy_scripts();
+    project::exec_predeploy_scripts();
 
     // deploy metadata
     for path in project_config.get_paths() {
         sf::project_deploy(path);
     }
 
-    // run scripts
+    project::exec_postdeploy_scripts();
 
     // run tests
     // display results
