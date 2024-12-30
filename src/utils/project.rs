@@ -1,8 +1,5 @@
-use std::{ffi::OsStr, fs};
-
-use anyhow::Result;
-
 use super::{sf, system};
+use std::{ffi::OsStr, fs};
 
 enum ScriptType {
     Shell,
