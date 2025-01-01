@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use utils::project_config;
+use crate::utils::sf;
 
 mod commands;
 mod utils;
@@ -25,7 +26,7 @@ enum Commands {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    utils::sf::verify_cli_is_installed();
+    sf::verify_cli_is_installed();
     let project_config = project_config::read(None);
 
     match &cli.command {

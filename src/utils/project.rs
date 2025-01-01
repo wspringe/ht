@@ -1,5 +1,7 @@
-use super::{sf, system};
+use super::system;
 use std::{ffi::OsStr, fs};
+use crate::utils::sf;
+use crate::utils::sf::Cli;
 
 enum ScriptType {
     Shell,
@@ -21,7 +23,8 @@ fn exec_scripts(scripts: Vec<Script>) {
     for script in scripts {
         match script.s_type {
             ScriptType::Apex => {
-                sf::exec_anonymous(&script.path);
+                todo!()
+                // sf::Cli::exec_anonymous(&script.path);
             }
             ScriptType::Shell => {
                 system::exec_script(&script.path);

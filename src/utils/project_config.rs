@@ -63,11 +63,13 @@ pub fn read(path: Option<String>) -> ProjectConfig {
     let project_json_path = path.unwrap_or(String::from("./sfdx-project.json"));
     let file = fs::read_to_string(project_json_path).expect("Did not find sfdx-project.json");
     let json: ProjectJson =
-        serde_json::from_str(&file).expect("SFDX Project JSON is not in correct format");
+        serde_json::from_str(&file).expect("SFDX Project JSON is not in expected format");
 
     let mut project_config = ProjectConfig {
         name: json.name,
+        paths: vec![],
         packages: Vec::new(),
+        unpackaged_metadata_path: None,
     };
 
     for package_directory in json.package_directories.into_iter() {
