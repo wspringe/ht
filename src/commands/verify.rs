@@ -32,5 +32,7 @@ pub fn run(devhub: &Option<String>, delete_old: &bool, project_config: &ProjectC
     project::exec_postdeploy_scripts();
 
     // run tests
+    sf::run_tests();
     // display results
+    // TODO: implement a display for everything things that happened this run (scipts run, test results, paths deployed;  option for more verbose/debug results like every metadata deployed)
 }

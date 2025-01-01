@@ -1,3 +1,5 @@
+// TODO: refactor into separate modules for each command (makes it easier to handle cli command outputs)
+
 use anyhow::anyhow;
 use anyhow::Result;
 use serde::Deserialize;
