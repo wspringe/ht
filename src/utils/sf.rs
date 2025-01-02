@@ -5,7 +5,6 @@ use anyhow::Result;
 use cli_table::format::Justify;
 use cli_table::{Cell, Style, Table, TableStruct};
 use serde::Deserialize;
-use std::ops::Deref;
 use std::{
     fmt::{self, Display, Formatter},
     process::Command,
@@ -50,18 +49,21 @@ struct DeployDetails {
 
 #[derive(Deserialize)]
 struct ScratchOrgInfo {
-    Id: String,
-    Features: String,
+    #[serde(rename = "Id")]
+    id: String,
+    #[serde(rename = "Features")]
+    features: String,
 }
 
 #[derive(Deserialize)]
 #[serde(untagged)]
-// #[serde(rename_all = "camelCase")]
 enum CliResult {
     CreateScratchOrgResult {
         username: String,
-        scratchOrgInfo: ScratchOrgInfo,
-        orgId: String,
+        #[serde(rename = "scratchOrgInfo")]
+        scratch_org_info: ScratchOrgInfo,
+        #[serde(rename = "orgId")]
+        org_id: String,
     },
     DeleteScratchOrgResult {
         username: String,
@@ -80,33 +82,111 @@ enum CliResult {
         exception_stack_trace: String,
     },
 }
-impl SfCliResult for CliResult {
+impl SfCliResult for SfCliCommandOutput {
     fn get_formatted_results(&self) -> TableStruct {
-        match self {
+        match self.result.as_ref().unwrap() {
             CliResult::CreateScratchOrgResult {
                 username,
-                scratchOrgInfo,
+                scratch_org_info,
                 ..
             } => vec![
-                vec!["Id".cell(), scratchOrgInfo.Id.clone().cell().justify(Justify::Right)],
+                vec![
+                    "Id".cell(),
+                    scratch_org_info.id.clone().cell().justify(Justify::Right),
+                ],
                 vec!["Username".cell(), username.cell().justify(Justify::Right)],
+                vec![
+                    "Features".cell(),
+                    scratch_org_info
+                        .features
+                        .replace(';', ", ")
+                        .cell()
+                        .justify(Justify::Right),
+                ],
             ]
             .table()
-            .title(vec!["Scratch Org".cell().bold(true), "Test".cell()])
+            .title(vec![
+                "Create Scratch Org Results".cell().bold(true),
+                "".cell(),
+            ])
             .bold(true),
-            _ => {vec![
-                vec!["Id".cell(), "id".cell().justify(Justify::Right)],
+            CliResult::DeleteScratchOrgResult { username, org_id } => vec![
+                vec![
+                    "Org Id".cell(),
+                    org_id.clone().cell().justify(Justify::Right),
+                ],
+                vec!["Username".cell(), username.cell().justify(Justify::Right)],
+                vec![
+                    "Is Deleted".cell(),
+                    (self.status == 0).cell().justify(Justify::Right),
+                ],
             ]
+            .table()
+            .title(vec![
+                "Delete Scratch Org Results".cell().bold(true),
+                "".cell(),
+            ])
+            .bold(true),
+            CliResult::AuthorizeResult { .. } => vec![vec![
+                "Is Authorized".cell(),
+                (self.status == 0).cell().justify(Justify::Right),
+            ]]
+            .table()
+            .title(vec![
+                "Authorize Dev Hub Results".cell().bold(true),
+                "".cell(),
+            ])
+            .bold(true),
+            CliResult::ProjectDeployResult { details } => vec![
+                vec![
+                    "Is Successful".cell(),
+                    (details.component_failures.len() != 0)
+                        .cell()
+                        .justify(Justify::Right),
+                ],
+                vec![
+                    "Problems".cell(),
+                    details
+                        .component_failures
+                        .iter()
+                        .map(|x| x.problem.clone())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                        .cell()
+                        .justify(Justify::Right),
+                ],
+                vec![
+                    "Is Deleted".cell(),
+                    (self.status == 0).cell().justify(Justify::Right),
+                ],
+            ]
+            .table()
+            .title(vec![
+                "Delete Scratch Org Results".cell().bold(true),
+                "".cell(),
+            ])
+            .bold(true),
+            CliResult::AuthorizeResult { .. } => vec![vec![
+                "Is Authorized".cell(),
+                (self.status == 0).cell().justify(Justify::Right),
+            ]]
+            .table()
+            .title(vec![
+                "Authorize Dev Hub Results".cell().bold(true),
+                "".cell(),
+            ])
+            .bold(true),
+            _ => vec![vec!["Id".cell(), "id".cell().justify(Justify::Right)]]
                 .table()
                 .title(vec!["Scratch Org".cell().bold(true)])
-                .bold(true)},
+                .bold(true),
         }
     }
 }
 
 #[derive(Deserialize)]
 pub struct SfCliCommandOutput {
-    name: String,
+    name: Option<String>,
     message: Option<String>,
     result: Option<CliResult>,
     status: u8,
@@ -149,168 +229,145 @@ impl Cli {
         devhub: &String,
         alias: &String,
     ) -> Result<SfCliCommandOutput> {
-        if !self.output.is_empty() {
-            let output = self.output.clone();
-            let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
-                .expect("could not deserialize sf cli command output");
-            if command_output.name.contains("Error") {
-                return Err(anyhow!(SfCliError).context(format!(
-                    "could not create scratch org: {}",
-                    command_output.message.unwrap(),
-                )));
-            }
-            Ok(command_output)
+        let output = if self.output.is_empty() {
+            self.get_output(vec![
+                "org",
+                "create",
+                "scratch",
+                "-v",
+                devhub,
+                "--definition-file",
+                "config/project-scratch-def.json",
+                "--alias",
+                alias,
+                "--json",
+            ])?
         } else {
-            let command = Command::new("sf")
-                .args([
-                    "org",
-                    "create",
-                    "scratch",
-                    "-v",
-                    devhub,
-                    "--definition-file",
-                    "config/project-scratch-def.json",
-                    "--alias",
-                    alias,
-                ])
-                .output();
+            self.output.clone()
+        };
 
-            match command {
-                Ok(x) => {
-                    let output = if self.output.is_empty() {
-                        String::from_utf8(x.stdout)?
-                    } else {
-                        self.output.clone()
-                    };
-                    let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
-                        .expect("could not deserialize sf cli command output");
-                    if command_output.name.contains("Error") {
-                        return Err(anyhow!(SfCliError).context(format!(
-                            "could not create scratch org: {}",
-                            command_output.message.unwrap(),
-                        )));
-                    }
-                    Ok(command_output)
-                }
-                Err(e) => Err(anyhow!(SfCliError).context(e.to_string())),
-            }
+        let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
+            .expect("could not deserialize sf cli command output");
+        if command_output.status > 0 {
+            return Err(anyhow!(SfCliError).context(format!(
+                "could not create scratch org: {}",
+                command_output.message.unwrap(),
+            )));
+        }
+        Ok(command_output)
+    }
+
+    fn get_output(&mut self, command_args: Vec<&str>) -> Result<String> {
+        let command_output = self.command.args(command_args).output();
+
+        match command_output {
+            Ok(x) => Ok(String::from_utf8(x.stdout)?),
+            Err(e) => return Err(anyhow!(SfCliError).context(e.to_string())),
         }
     }
 
-    pub fn delete_old_scratch(scratch_name: &String) -> Result<SfCliCommandOutput> {
-        let command = Command::new("sf")
-            .args(["org", "delete", "scratch", "--target-org", scratch_name])
-            .output();
+    pub fn delete_old_scratch(&mut self, scratch_name: &String) -> Result<SfCliCommandOutput> {
+        let output = if self.output.is_empty() {
+            self.get_output(vec![
+                "org",
+                "delete",
+                "scratch",
+                "--target-org",
+                scratch_name,
+                "--json",
+            ])?
+        } else {
+            self.output.clone()
+        };
 
-        match command {
-            Ok(x) => {
-                let output = String::from_utf8(x.stdout).unwrap();
-                let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
-                    .expect("could not deserialize sf cli command output");
-                if command_output.name.contains("Error") {
-                    return Err(anyhow!(SfCliError).context(format!(
-                        "could not delete scratch org: {}",
-                        command_output.message.unwrap(),
-                    )));
-                }
-                Ok(command_output)
-            }
-            Err(e) => Err(anyhow!(SfCliError).context(e.to_string())),
+        let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
+            .expect("could not deserialize sf cli command output");
+        if command_output.status > 0 {
+            return Err(anyhow!(SfCliError).context(format!(
+                "could not delete scratch org: {}",
+                command_output.message.unwrap(),
+            )));
         }
+        Ok(command_output)
     }
 
-    pub fn auth_devhub(path_to_auth_file: &String) -> Result<SfCliCommandOutput> {
-        let command = Command::new("sf")
-            .args([
+    pub fn auth_devhub(&mut self, path_to_auth_file: &String) -> Result<SfCliCommandOutput> {
+        let output = if self.output.is_empty() {
+            self.get_output(vec![
                 "org",
                 "login",
                 "sfdx-url",
                 "--sfdx-url-file",
                 path_to_auth_file,
-            ])
-            .output();
+                "--json",
+            ])?
+        } else {
+            self.output.clone()
+        };
 
-        match command {
-            Ok(x) => {
-                let output = String::from_utf8(x.stdout).unwrap();
-                let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
-                    .expect("could not deserialize sf cli command output");
-                if command_output.name.contains("Error") {
-                    return Err(anyhow!(SfCliError).context(format!(
-                        "could not authorize devhub: {}",
-                        command_output.message.unwrap(),
-                    )));
-                }
-                Ok(command_output)
-            }
-            Err(e) => Err(anyhow!(SfCliError).context(e.to_string())),
+        let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
+            .expect("could not deserialize sf cli command output");
+        if command_output.status > 0 {
+            return Err(anyhow!(SfCliError).context(format!(
+                "could not authorize devhub: {}",
+                command_output.message.unwrap(),
+            )));
         }
+        Ok(command_output)
     }
 
-    pub fn project_deploy(path: &String) -> Result<SfCliCommandOutput> {
-        let command = Command::new("sf")
-            .args(["project", "deploy", "start", "-d", path])
-            .output();
+    pub fn project_deploy(&mut self, path: &String) -> Result<SfCliCommandOutput> {
+        let output = if self.output.is_empty() {
+            self.get_output(vec!["project", "deploy", "start", "-d", path, "--json"])?
+        } else {
+            self.output.clone()
+        };
 
-        match command {
-            Ok(x) => {
-                let output = String::from_utf8(x.stdout).unwrap();
-                let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
-                    .expect("could not deserialize sf cli command output");
-                if command_output.name.contains("Error") {
-                    return Err(anyhow!(SfCliError).context(format!(
-                        "could not create scratch org: {}",
-                        command_output.message.unwrap(),
-                    )));
-                }
-                Ok(command_output)
-            }
-            Err(e) => Err(anyhow!(SfCliError).context(e.to_string())),
+        let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
+            .expect("could not deserialize sf cli command output");
+        if command_output.status > 0 {
+            return Err(anyhow!(SfCliError).context(format!(
+                "could not authorize devhub: {}",
+                command_output.message.unwrap(),
+            )));
         }
+        Ok(command_output)
     }
 
-    pub(crate) fn exec_anonymous(path: &String) -> Result<SfCliCommandOutput> {
-        let command = Command::new("sf")
-            .args(["apex", "run", "--file", path])
-            .output();
+    pub fn exec_anonymous(&mut self, path: &String) -> Result<SfCliCommandOutput> {
+        let output = if self.output.is_empty() {
+            self.get_output(vec!["apex", "run", "--file", path, "--json"])?
+        } else {
+            self.output.clone()
+        };
 
-        match command {
-            Ok(x) => {
-                let output = String::from_utf8(x.stdout).unwrap();
-                let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
-                    .expect("could not deserialize sf cli command output");
-                if command_output.name.contains("Error") {
-                    return Err(anyhow!(SfCliError).context(format!(
-                        "could not execute anonymous apex: {}",
-                        command_output.message.unwrap(),
-                    )));
-                }
-                Ok(command_output)
-            }
-            Err(e) => Err(anyhow!(SfCliError).context(e.to_string())),
+        let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
+            .expect("could not deserialize sf cli command output");
+        if command_output.status > 0 {
+            return Err(anyhow!(SfCliError).context(format!(
+                "could not authorize devhub: {}",
+                command_output.message.unwrap(),
+            )));
         }
+        Ok(command_output)
     }
 
-    pub fn run_tests() -> Result<SfCliCommandOutput> {
-        let command = Command::new("sf")
-            .args(["apex", "test", "run", "-c", "-w", "60"])
-            .output();
+    pub fn run_tests(&mut self) -> Result<SfCliCommandOutput> {
+        let output = if self.output.is_empty() {
+            self.get_output(vec!["apex", "test", "run", "-c", "-w", "60", "--json"])?
+        } else {
+            self.output.clone()
+        };
 
-        match command {
-            Ok(x) => {
-                let output = String::from_utf8(x.stdout).unwrap();
-                let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
-                    .expect("could not deserialize sf cli comman output");
-                if command_output.name.contains("Error") {
-                    return Err(anyhow!(SfCliError).context(format!(
-                        "could not execute apex tests: {}",
-                        command_output.message.unwrap(),
-                    )));
-                }
-                Ok(command_output)
-            }
-            Err(e) => Err(anyhow!(SfCliError).context(e.to_string())),
+        let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
+            .expect("could not deserialize sf cli command output");
+        if command_output.status > 0 {
+            return Err(anyhow!(SfCliError).context(format!(
+                "could not authorize devhub: {}",
+                command_output.message.unwrap(),
+            )));
         }
+        Ok(command_output)
     }
 }
 
@@ -321,25 +378,23 @@ mod tests {
 
     #[test]
     fn it_should_create_a_scratch_org() {
-        let mut cli = Cli::new();
         let input = r#"{
-        "name": "x",
   "status": 0,
   "result": {
-    "username": "test-blpnvdpjpiyz@example.com",
+    "username": "test@example.com",
     "scratchOrgInfo": {
       "attributes": {
         "type": "ScratchOrgInfo",
         "url": "/services/data/v62.0/sobjects/ScratchOrgInfo/2SRbm000000H9ZxGAK"
       },
-      "Id": "2SRbm000000H9ZxGAK",
-      "OwnerId": "005bm000004AABtAAO",
+      "Id": "1",
+      "OwnerId": "1",
       "IsDeleted": false,
       "Name": "00000005",
       "CreatedDate": "2025-01-01T05:29:34.000+0000",
-      "CreatedById": "005bm000004AABtAAO",
+      "CreatedById": "1",
       "LastModifiedDate": "2025-01-01T05:29:49.000+0000",
-      "LastModifiedById": "005bm000004A6XQAA0",
+      "LastModifiedById": "1",
       "SystemModstamp": "2025-01-01T05:29:49.000+0000",
       "LastViewedDate": "2025-01-01T05:29:49.000+0000",
       "LastReferencedDate": "2025-01-01T05:29:49.000+0000",
@@ -358,17 +413,16 @@ mod tests {
       "SourceOrg": null,
       "HasSampleData": false,
       "Release": "Current",
-      "SignupUsername": "test-blpnvdpjpiyz@example.com",
+      "SignupUsername": "test@test.com",
       "Status": "Active",
       "ErrorCode": null,
-      "ScratchOrg": "00DO4000009XSLJ",
+      "ScratchOrg": "1",
       "SignupInstance": "USA260S",
-      "AuthCode": "aPrxtSLWzVcgKiTAkeMEf3qU2f1._QkXKCZDoaBduj7jT1yZb2iiwCoBwGmtdDrl6wKtDDcXlA==",
       "SignupCountry": "US",
       "SignupLanguage": "en_US",
-      "SignupEmail": "wesdemonnic@gmail.com",
+      "SignupEmail": "test@test.com",
       "SignupTrialDays": 7,
-      "LoginUrl": "https://energy-dream-6326-dev-ed.scratch.my.salesforce.com",
+      "LoginUrl": "https://test.my.salesforce.com",
       "Description": null,
       "ExpirationDate": "2025-01-08",
       "LastLoginDate": null,
@@ -376,12 +430,10 @@ mod tests {
       "DeletedDate": null
     },
     "authFields": {
-      "accessToken": "7c8d3115deb23e0d0630c7a14945d346acc9f5f975b375728a04282edcbc5f23865474cf5130b3d888565308b226db7e9d912250ced738ac630ae1dbc4c7f468ba9c7115af9778b01146f5c7f956e7c6e422fcf4f3e06430eaf171f5b48a3d5252a6441f7fdfa058383bd88738cfb8abfb7cdd383c40:881b9a4bfb9bbe7437c760a9bc8ddd22",
-      "instanceUrl": "https://energy-dream-6326-dev-ed.scratch.my.salesforce.com",
-      "orgId": "00DO4000009XSLJMA4",
-      "username": "test-blpnvdpjpiyz@example.com",
-      "loginUrl": "https://energy-dream-6326-dev-ed.scratch.my.salesforce.com",
-      "refreshToken": "b113a724e595e1dbe5b172d98c6e2d2bc0960cad9f2437de103c302b574b1b9d008251b05e70e21ef4a0d2999c38fea73d7f65b1a8d3b4ee5ddd7bd8583dbd3535313b5de4dd3b366b8b3b50bfb8ba4a942d3c23f0d4dffbb5d1c027df:60fc87779d59d9649bd0d3aaa3228fc4",
+      "instanceUrl": "https://test.my.salesforce.com",
+      "orgId": "1",
+      "username": "test@example.com",
+      "loginUrl": "https://test.my.salesforce.com",
       "clientId": "PlatformCLI",
       "isDevHub": false,
       "created": "1735709374000",
@@ -401,9 +453,15 @@ mod tests {
   ]
 }
 "#;
+
+        let mut cli = Cli::new();
         cli.mock_cli_output(String::from(input));
-        let output = cli.create_scratch_org(&"devhub".to_string(), &"alias".to_string());
-        let s = print_stdout(output.unwrap().result.unwrap().get_formatted_results());
-        assert!(s.is_ok());
+        let command_output = &cli.create_scratch_org(&"devhub".to_string(), &"alias".to_string());
+        assert!(command_output.is_ok());
+        assert!(matches!(
+            command_output.as_ref().unwrap().result.as_ref().unwrap(),
+            CliResult::CreateScratchOrgResult { .. }
+        ));
+        assert!(print_stdout(command_output.as_ref().unwrap().get_formatted_results()).is_ok());
     }
 }
