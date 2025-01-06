@@ -11,7 +11,7 @@ use std::{
     process::Command,
 };
 
-trait SfCliResult {
+pub trait SfCliResult {
     fn get_formatted_results(&self) -> TableStruct;
 }
 
@@ -65,7 +65,7 @@ struct ScratchOrgInfo {
 
 #[derive(Deserialize, EnumAsInner, Debug)]
 #[serde(untagged)]
-enum CliResult {
+pub enum CliResult {
     CreateScratchOrgResult {
         username: String,
         #[serde(rename = "scratchOrgInfo")]
@@ -96,6 +96,10 @@ enum CliResult {
     RunApexTestsResult {
         summary: RunTestSummary,
         tests: Vec<RunTestResult>,
+    },
+    PackageInstallResult {
+        #[serde(rename = "Status")]
+        status: String,
     },
 }
 impl SfCliResult for SfCliCommandOutput {
@@ -234,6 +238,7 @@ impl SfCliResult for SfCliCommandOutput {
             .table()
             .title(vec!["Run Apex Tests Result".cell().bold(true), "".cell()])
             .bold(true),
+            _ => unreachable!(),
         }
     }
 }
@@ -242,7 +247,7 @@ impl SfCliResult for SfCliCommandOutput {
 pub struct SfCliCommandOutput {
     name: Option<String>,
     message: Option<String>,
-    result: Option<CliResult>,
+    pub result: Option<CliResult>,
     status: u32,
 }
 
@@ -256,7 +261,7 @@ impl Display for SfCliError {
 }
 
 pub fn verify_cli_is_installed() -> Result<()> {
-    match Command::new("sf").spawn() {
+    match Command::new("sf").output() {
         Ok(_) => Ok(()),
         Err(..) => Err(anyhow!("SF CLI not found")),
     }
@@ -294,6 +299,7 @@ impl Cli {
                 "config/project-scratch-def.json",
                 "--alias",
                 alias,
+                "--set-default",
                 "--json",
             ])?
         } else {
@@ -328,14 +334,14 @@ impl Cli {
                 "scratch",
                 "--target-org",
                 scratch_name,
+                "--no-prompt",
                 "--json",
             ])?
         } else {
             self.output.clone()
         };
 
-        let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
-            .expect("could not deserialize sf cli command output");
+        let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())?;
         if command_output.status != 0 {
             return Err(anyhow!(SfCliError).context(format!(
                 "could not delete scratch org: {}",
@@ -408,16 +414,45 @@ impl Cli {
 
     pub fn run_tests(&mut self) -> Result<SfCliCommandOutput> {
         let output = if self.output.is_empty() {
-            self.get_output(vec!["apex", "test", "run", "-c", "-w", "60", "--json"])?
+            self.get_output(vec!["apex", "run", "test", "-c", "-w", "60", "--json"])?
         } else {
             self.output.clone()
         };
 
         let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
             .expect("could not deserialize sf cli command output");
+
+        // I do not know why the status for this is 100
         if command_output.status != 100 {
             return Err(anyhow!(SfCliError).context(format!(
                 "could not run apex tests: {}",
+                command_output.message.unwrap(),
+            )));
+        }
+        Ok(command_output)
+    }
+
+    // TODO: handle packages with keys
+    pub fn install_package(&mut self, package_id: &String) -> Result<SfCliCommandOutput> {
+        let output = if self.output.is_empty() {
+            self.get_output(vec![
+                "package",
+                "install",
+                "--package",
+                package_id,
+                "-w",
+                "60",
+                "--json",
+            ])?
+        } else {
+            self.output.clone()
+        };
+
+        let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
+            .expect("could not deserialize sf cli command output");
+        if command_output.status != 0 {
+            return Err(anyhow!(SfCliError).context(format!(
+                "could not install package: {}",
                 command_output.message.unwrap(),
             )));
         }
@@ -499,7 +534,7 @@ mod tests {
       "instanceApiVersion": "62.0",
       "instanceApiVersionLastRetrieved": "12/31/2024, 10:29:51 PM"
     },
-    "warnings": [],
+   "warnings": [],
     "orgId": "00DO4000009XSLJMA4"
   },
   "warnings": [
@@ -855,5 +890,42 @@ mod tests {
             result.unwrap().as_run_apex_tests_result().unwrap().1.len()
         );
         assert!(print_stdout(command_output.as_ref().unwrap().get_formatted_results()).is_ok());
+    }
+
+    #[test]
+    fn it_should_install_a_package() {
+        let input = r#"{
+  "status": 0,
+  "result": {
+    "attributes": {
+      "type": "PackageInstallRequest",
+      "url": "/services/data/v62.0/tooling/sobjects/PackageInstallRequest/0Hfbm0000028WXpCAM"
+    },
+    "Id": "0Hfbm0000028WXpCAM",
+    "IsDeleted": false,
+    "CreatedDate": "2025-01-05T22:35:49.000+0000",
+    "SkipHandlers": null,
+    "Status": "SUCCESS",
+    "Errors": null
+  },
+  "warnings": []
+}
+"#;
+
+        let mut cli = Cli::new();
+        cli.mock_cli_output(String::from(input));
+        let command_output = &cli.install_package(&String::from("id"));
+        assert!(command_output.is_ok());
+
+        let result = command_output.as_ref().unwrap().result.as_ref();
+        assert!(result.is_some());
+        assert!(matches!(
+            result.unwrap(),
+            CliResult::PackageInstallResult { .. }
+        ));
+        assert_eq!(
+            "SUCCESS",
+            result.unwrap().as_package_install_result().unwrap()
+        );
     }
 }

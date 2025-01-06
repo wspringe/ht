@@ -14,11 +14,10 @@ struct ProjectJson {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PackageDirectory {
-    #[serde(default)]
     dependencies: Option<Vec<Dependency>>,
-    package: String,
+    package: Option<String>,
     path: String,
-    version_number: String,
+    version_number: Option<String>,
     default: Option<bool>,
     unpackaged_metadata: Option<String>,
 }
@@ -39,9 +38,9 @@ pub struct ProjectConfig {
 
 #[derive(Debug)]
 pub struct Package {
-    name: String,
+    pub name: String,
     version: String,
-    id: String,
+    pub id: String,
 }
 
 impl ProjectConfig {

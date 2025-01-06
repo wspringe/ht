@@ -1,7 +1,9 @@
+use crate::utils::sf;
+use anyhow::anyhow;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use rand::Rng;
 use utils::project_config;
-use crate::utils::sf;
 
 mod commands;
 mod utils;
@@ -19,22 +21,38 @@ enum Commands {
     Verify {
         #[arg(short = 'v', long = "dev-hub")]
         devhub: Option<String>,
-        #[arg(long = "delete-old", default_value_t = false)]
-        delete_old: bool,
     },
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    sf::verify_cli_is_installed();
+    match sf::verify_cli_is_installed() {
+        Ok(_) => (),
+        Err(x) => return Err(anyhow!(x)),
+    }
     let project_config = project_config::read(None);
 
     match &cli.command {
-        Commands::Verify { devhub, delete_old } => {
+        Commands::Verify { devhub } => {
             println!("Verify was used ");
-            commands::verify::run(devhub, delete_old, &project_config);
+            let scratch_org_name = format!(
+                "{}{}",
+                project_config.get_name(),
+                rand::thread_rng().gen::<usize>()
+            );
+            println!("scratch name {}", scratch_org_name);
+            let command_run = commands::verify::run(&scratch_org_name, devhub, &project_config);
+            match command_run {
+                Ok(_) => Ok(()),
+                Err(x) => {
+                    println!("in err");
+                    match sf::Cli::new().delete_old_scratch(&scratch_org_name) {
+                        Ok(_) => println!("deleted old scratch"),
+                        Err(x) => println!("why {}", x),
+                    }
+                    Err(anyhow!(x))
+                }
+            }
         }
     }
-
-    Ok(())
 }

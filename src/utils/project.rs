@@ -1,7 +1,6 @@
 use super::system;
+use anyhow::Result;
 use std::{ffi::OsStr, fs};
-use crate::utils::sf;
-use crate::utils::sf::Cli;
 
 enum ScriptType {
     Shell,
@@ -9,14 +8,19 @@ enum ScriptType {
     Unknown,
 }
 
-struct Script {
+pub struct Script {
     path: String,
     s_type: ScriptType,
 }
 
-pub fn exec_predeploy_scripts() {
-    let scripts = get_predeploy_scripts();
-    exec_scripts(scripts);
+pub fn exec_predeploy_scripts() -> Result<()> {
+    match get_predeploy_scripts() {
+        Ok(x) => {
+            exec_scripts(x);
+            Ok(())
+        }
+        Err(_) => Ok(()),
+    }
 }
 
 fn exec_scripts(scripts: Vec<Script>) {
@@ -36,20 +40,25 @@ fn exec_scripts(scripts: Vec<Script>) {
     }
 }
 
-pub fn exec_postdeploy_scripts() {
-    let scripts = get_postdeploy_scripts();
-    exec_scripts(scripts);
+pub fn exec_postdeploy_scripts() -> Result<()> {
+    match get_postdeploy_scripts() {
+        Ok(x) => {
+            exec_scripts(x);
+            Ok(())
+        }
+        Err(_) => Ok(()),
+    }
 }
 
-fn get_predeploy_scripts() -> Vec<Script> {
-    let paths = fs::read_dir("deploy/pre").expect("Did not find a deploy/pre directory");
-    get_scripts(paths)
+fn get_predeploy_scripts() -> Result<Vec<Script>> {
+    let paths = fs::read_dir("deploy/pre")?;
+    Ok(get_scripts(paths))
 }
 
 fn get_scripts(paths: fs::ReadDir) -> Vec<Script> {
     let mut scripts: Vec<Script> = Vec::new();
 
-    for entry in paths {
+    paths.for_each(|entry| {
         if let Ok(entry) = entry {
             let s_type = if get_extension(&entry) == "apex" {
                 ScriptType::Apex
@@ -64,7 +73,7 @@ fn get_scripts(paths: fs::ReadDir) -> Vec<Script> {
                 s_type,
             })
         }
-    }
+    });
 
     scripts
 }
@@ -78,7 +87,7 @@ fn get_extension(entry: &fs::DirEntry) -> String {
         .to_owned()
 }
 
-pub fn get_postdeploy_scripts() -> Vec<Script> {
-    let paths = fs::read_dir("deploy/post").expect("Did not find a deploy/post directory");
-    get_scripts(paths)
+pub fn get_postdeploy_scripts() -> Result<Vec<Script>> {
+    let paths = fs::read_dir("deploy/post")?;
+    Ok(get_scripts(paths))
 }
