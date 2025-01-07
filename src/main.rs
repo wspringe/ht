@@ -21,6 +21,8 @@ enum Commands {
     Verify {
         #[arg(short = 'v', long = "dev-hub")]
         devhub: Option<String>,
+        #[arg(short = 'o', long = "target-out")]
+        target_org: Option<String>,
     },
 }
 
@@ -33,22 +35,24 @@ fn main() -> Result<()> {
     let project_config = project_config::read(None);
 
     match &cli.command {
-        Commands::Verify { devhub } => {
-            println!("Verify was used ");
+        Commands::Verify { devhub, target_org } => {
             let scratch_org_name = format!(
                 "{}{}",
                 project_config.get_name(),
                 rand::thread_rng().gen::<usize>()
             );
             println!("scratch name {}", scratch_org_name);
-            let command_run = commands::verify::run(&scratch_org_name, devhub, &project_config);
+            let command_run =
+                commands::verify::run(&scratch_org_name, devhub, target_org, &project_config);
             match command_run {
                 Ok(_) => Ok(()),
                 Err(x) => {
                     println!("in err");
-                    match sf::Cli::new().delete_old_scratch(&scratch_org_name) {
-                        Ok(_) => println!("deleted old scratch"),
-                        Err(x) => println!("why {}", x),
+                    if target_org.is_none() {
+                        match sf::Cli::new(scratch_org_name.clone()).delete_old_scratch() {
+                            Ok(_) => println!("deleted old scratch"),
+                            Err(x) => println!("why {}", x),
+                        }
                     }
                     Err(anyhow!(x))
                 }

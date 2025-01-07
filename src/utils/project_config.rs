@@ -72,6 +72,7 @@ pub fn read(path: Option<String>) -> ProjectConfig {
     };
 
     for package_directory in json.package_directories.into_iter() {
+        project_config.paths.push(package_directory.path);
         for dependency in package_directory
             .dependencies
             .unwrap_or_default()
@@ -95,7 +96,7 @@ pub fn read(path: Option<String>) -> ProjectConfig {
         }
     }
 
-    return project_config;
+    project_config
 }
 
 #[cfg(test)]

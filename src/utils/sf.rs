@@ -6,6 +6,7 @@ use cli_table::format::Justify;
 use cli_table::{Cell, Style, Table, TableStruct};
 use enum_as_inner::EnumAsInner;
 use serde::Deserialize;
+use std::process::Stdio;
 use std::{
     fmt::{self, Display, Formatter},
     process::Command,
@@ -267,14 +268,14 @@ pub fn verify_cli_is_installed() -> Result<()> {
     }
 }
 pub struct Cli {
-    command: Command,
     output: String,
+    target_org: String,
 }
 impl Cli {
-    pub(crate) fn new() -> Self {
+    pub fn new(target_org: String) -> Self {
         Cli {
-            command: Command::new("sf"),
             output: String::new(),
+            target_org: target_org.clone(),
         }
     }
 
@@ -283,12 +284,9 @@ impl Cli {
         self
     }
 
-    pub fn create_scratch_org(
-        &mut self,
-        devhub: &String,
-        alias: &String,
-    ) -> Result<SfCliCommandOutput> {
+    pub fn create_scratch_org(&mut self, devhub: &String) -> Result<SfCliCommandOutput> {
         let output = if self.output.is_empty() {
+            let target_org = self.target_org.clone();
             self.get_output(vec![
                 "org",
                 "create",
@@ -298,7 +296,7 @@ impl Cli {
                 "--definition-file",
                 "config/project-scratch-def.json",
                 "--alias",
-                alias,
+                target_org.as_str(),
                 "--set-default",
                 "--json",
             ])?
@@ -318,22 +316,27 @@ impl Cli {
     }
 
     fn get_output(&mut self, command_args: Vec<&str>) -> Result<String> {
-        let command_output = self.command.args(command_args).output();
+        let command_output = Command::new("sf")
+            .args(command_args)
+            .stdout(Stdio::piped())
+            .spawn()?;
+        let output = command_output.wait_with_output();
 
-        match command_output {
+        match output {
             Ok(x) => Ok(String::from_utf8(x.stdout)?),
             Err(e) => Err(anyhow!(SfCliError).context(e.to_string())),
         }
     }
 
-    pub fn delete_old_scratch(&mut self, scratch_name: &String) -> Result<SfCliCommandOutput> {
+    pub fn delete_old_scratch(&mut self) -> Result<SfCliCommandOutput> {
         let output = if self.output.is_empty() {
+            let target_org = self.target_org.clone();
             self.get_output(vec![
                 "org",
                 "delete",
                 "scratch",
                 "--target-org",
-                scratch_name,
+                target_org.as_str(),
                 "--no-prompt",
                 "--json",
             ])?
@@ -351,7 +354,7 @@ impl Cli {
         Ok(command_output)
     }
 
-    pub fn auth_devhub(&mut self, path_to_auth_file: &String) -> Result<SfCliCommandOutput> {
+    pub fn auth_devhub(&mut self, path_to_auth_file: &str) -> Result<SfCliCommandOutput> {
         let output = if self.output.is_empty() {
             self.get_output(vec![
                 "org",
@@ -376,9 +379,19 @@ impl Cli {
         Ok(command_output)
     }
 
-    pub fn project_deploy(&mut self, path: &String) -> Result<SfCliCommandOutput> {
+    pub fn project_deploy(&mut self, path: &str) -> Result<SfCliCommandOutput> {
         let output = if self.output.is_empty() {
-            self.get_output(vec!["project", "deploy", "start", "-d", path, "--json"])?
+            let target_org = self.target_org.clone();
+            self.get_output(vec![
+                "project",
+                "deploy",
+                "start",
+                "-d",
+                path,
+                "--json",
+                "-o",
+                target_org.as_str(),
+            ])?
         } else {
             self.output.clone()
         };
@@ -394,9 +407,18 @@ impl Cli {
         Ok(command_output)
     }
 
-    pub fn exec_anonymous(&mut self, path: &String) -> Result<SfCliCommandOutput> {
+    pub fn exec_anonymous(&mut self, path: &str) -> Result<SfCliCommandOutput> {
         let output = if self.output.is_empty() {
-            self.get_output(vec!["apex", "run", "--file", path, "--json"])?
+            let target_org = self.target_org.clone();
+            self.get_output(vec![
+                "apex",
+                "run",
+                "--file",
+                path,
+                "--json",
+                "-o",
+                target_org.as_str(),
+            ])?
         } else {
             self.output.clone()
         };
@@ -414,7 +436,20 @@ impl Cli {
 
     pub fn run_tests(&mut self) -> Result<SfCliCommandOutput> {
         let output = if self.output.is_empty() {
-            self.get_output(vec!["apex", "run", "test", "-c", "-w", "60", "--json"])?
+            let target_org = self.target_org.clone();
+            self.get_output(vec![
+                "apex",
+                "run",
+                "test",
+                "-c",
+                "-l",
+                "RunLocalTests",
+                "-w",
+                "60",
+                "--json",
+                "--target-org",
+                target_org.as_str(),
+            ])?
         } else {
             self.output.clone()
         };
@@ -433,8 +468,9 @@ impl Cli {
     }
 
     // TODO: handle packages with keys
-    pub fn install_package(&mut self, package_id: &String) -> Result<SfCliCommandOutput> {
+    pub fn install_package(&mut self, package_id: &str) -> Result<SfCliCommandOutput> {
         let output = if self.output.is_empty() {
+            let target_org = self.target_org.clone();
             self.get_output(vec![
                 "package",
                 "install",
@@ -443,6 +479,8 @@ impl Cli {
                 "-w",
                 "60",
                 "--json",
+                "-o",
+                target_org.as_str(),
             ])?
         } else {
             self.output.clone()
@@ -543,9 +581,9 @@ mod tests {
 }
 "#;
 
-        let mut cli = Cli::new();
+        let mut cli = Cli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
-        let command_output = &cli.create_scratch_org(&"devhub".to_string(), &"alias".to_string());
+        let command_output = &cli.create_scratch_org(&"devhub".to_string());
         assert!(command_output.is_ok());
 
         let result = command_output.as_ref().unwrap().result.as_ref();
@@ -573,9 +611,9 @@ mod tests {
         }
 "#;
 
-        let mut cli = Cli::new();
+        let mut cli = Cli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
-        let command_output = &cli.delete_old_scratch(&"test".to_string());
+        let command_output = &cli.delete_old_scratch();
         assert!(command_output.is_ok());
 
         let result = command_output.as_ref().unwrap().result.as_ref();
@@ -611,7 +649,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = Cli::new();
+        let mut cli = Cli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.auth_devhub(&"path".to_string());
         assert!(command_output.is_ok());
@@ -710,7 +748,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = Cli::new();
+        let mut cli = Cli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.project_deploy(&"path".to_string());
         assert!(command_output.is_ok());
@@ -751,7 +789,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = Cli::new();
+        let mut cli = Cli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.exec_anonymous(&"path".to_string());
         assert!(command_output.is_ok());
@@ -865,7 +903,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = Cli::new();
+        let mut cli = Cli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.run_tests();
         assert!(command_output.is_ok());
@@ -912,7 +950,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = Cli::new();
+        let mut cli = Cli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.install_package(&String::from("id"));
         assert!(command_output.is_ok());

@@ -10,17 +10,24 @@ use anyhow::Result;
 pub fn run(
     scratch_org_name: &String,
     devhub: &Option<String>,
+    target_org: &Option<String>,
     project_config: &ProjectConfig,
 ) -> Result<()> {
+    println!("project config: {:?}", project_config);
     let devhub_alias = match devhub {
         Some(x) => x,
         None => &String::from("DevHub"),
     };
 
     let mut cli_results: Vec<SfCliCommandOutput> = Vec::new();
-    let mut cli = Cli::new();
+    let mut cli: Cli;
     println!("creating scratch");
-    cli_results.push(cli.create_scratch_org(devhub_alias, scratch_org_name)?);
+    if target_org.is_none() {
+        cli = Cli::new(scratch_org_name.to_owned());
+        cli_results.push(cli.create_scratch_org(devhub_alias)?);
+    } else {
+        cli = Cli::new(target_org.to_owned().unwrap());
+    }
 
     println!("installing any dependencies");
     for package in project_config.get_packages() {
