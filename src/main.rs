@@ -1,12 +1,14 @@
-use crate::utils::sf;
 use anyhow::anyhow;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use cli::sf;
 use rand::Rng;
-use utils::project_config;
 
+mod cli;
 mod commands;
-mod utils;
+mod project;
+mod project_config;
+mod system;
 
 /// Search for a pattern in a file and display the lines that contain it.
 #[derive(Parser)]
@@ -46,7 +48,7 @@ fn main() -> Result<()> {
                 commands::verify::run(&scratch_org_name, devhub, target_org, &project_config);
 
             if target_org.is_none() {
-                sf::Cli::new(scratch_org_name.to_owned()).delete_old_scratch()?;
+                sf::SalesforceCli::new(scratch_org_name.to_owned()).delete_old_scratch()?;
             }
 
             if command_run.is_err() {

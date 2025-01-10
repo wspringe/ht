@@ -1,4 +1,3 @@
-// TODO: refactor into separate modules for each command (makes it easier to handle cli command outputs)
 #![allow(dead_code)]
 
 use anyhow::anyhow;
@@ -270,14 +269,14 @@ pub fn verify_cli_is_installed() -> Result<()> {
 }
 
 #[derive(Clone)]
-pub struct Cli {
+pub struct SalesforceCli {
     output: String,
     target_org: String,
     progress_bar: ProgressBar,
 }
-impl Cli {
+impl SalesforceCli {
     pub fn new(target_org: String) -> Self {
-        Cli {
+        SalesforceCli {
             output: String::new(),
             target_org: target_org.clone(),
             progress_bar: ProgressBar::new_spinner(),
@@ -322,6 +321,7 @@ impl Cli {
             )));
         }
         self.progress_bar.finish();
+        print_stdout(command_output.get_formatted_results())?;
         Ok(command_output)
     }
 
@@ -365,7 +365,8 @@ impl Cli {
                 command_output.message.unwrap(),
             )));
         }
-        self.progress_bar.finish_with_message("Done!");
+        self.progress_bar.finish();
+        print_stdout(command_output.get_formatted_results())?;
         Ok(command_output)
     }
 
@@ -424,10 +425,15 @@ impl Cli {
             )));
         }
         self.progress_bar.finish();
+        print_stdout(command_output.get_formatted_results())?;
         Ok(command_output)
     }
 
     pub fn exec_anonymous(&mut self, path: &str) -> Result<SfCliCommandOutput> {
+        self.progress_bar
+            .to_owned()
+            .with_message(format!("Executing anonymous apex script at {:?}", path))
+            .enable_steady_tick(Duration::from_millis(120));
         let output = if self.output.is_empty() {
             let target_org = self.target_org.clone();
             self.get_output(vec![
@@ -451,6 +457,9 @@ impl Cli {
                 command_output.message.unwrap(),
             )));
         }
+
+        self.progress_bar.finish();
+        print_stdout(command_output.get_formatted_results())?;
         Ok(command_output)
     }
 
@@ -607,7 +616,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = Cli::new(String::from("test"));
+        let mut cli = SalesforceCli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.create_scratch_org("devhub");
         assert!(command_output.is_ok());
@@ -637,7 +646,7 @@ mod tests {
         }
 "#;
 
-        let mut cli = Cli::new(String::from("test"));
+        let mut cli = SalesforceCli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.delete_old_scratch();
         assert!(command_output.is_ok());
@@ -675,7 +684,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = Cli::new(String::from("test"));
+        let mut cli = SalesforceCli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.auth_devhub("path");
         assert!(command_output.is_ok());
@@ -774,7 +783,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = Cli::new(String::from("test"));
+        let mut cli = SalesforceCli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.project_deploy("path");
         assert!(command_output.is_ok());
@@ -812,7 +821,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = Cli::new(String::from("test"));
+        let mut cli = SalesforceCli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.exec_anonymous("path");
         assert!(command_output.is_ok());
@@ -913,7 +922,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = Cli::new(String::from("test"));
+        let mut cli = SalesforceCli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.run_tests();
         assert!(command_output.is_ok());
@@ -946,7 +955,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = Cli::new(String::from("test"));
+        let mut cli = SalesforceCli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.install_package(&String::from("id"));
         assert!(command_output.is_ok());

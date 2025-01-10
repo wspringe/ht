@@ -1,6 +1,9 @@
-use super::{sf::Cli, system};
 use anyhow::Result;
 use std::{ffi::OsStr, fs};
+
+use crate::cli::sf::SalesforceCli;
+
+use super::system;
 
 enum ScriptType {
     Shell,
@@ -13,7 +16,7 @@ pub struct Script {
     s_type: ScriptType,
 }
 
-pub fn exec_predeploy_scripts(cli: Cli) -> Result<()> {
+pub fn exec_predeploy_scripts(cli: SalesforceCli) -> Result<()> {
     match get_predeploy_scripts() {
         Ok(x) => {
             exec_scripts(x, cli);
@@ -23,7 +26,7 @@ pub fn exec_predeploy_scripts(cli: Cli) -> Result<()> {
     }
 }
 
-fn exec_scripts(scripts: Vec<Script>, mut cli: Cli) {
+fn exec_scripts(scripts: Vec<Script>, mut cli: SalesforceCli) {
     for script in scripts {
         match script.s_type {
             ScriptType::Apex => {
@@ -39,7 +42,7 @@ fn exec_scripts(scripts: Vec<Script>, mut cli: Cli) {
     }
 }
 
-pub fn exec_postdeploy_scripts(cli: Cli) -> Result<()> {
+pub fn exec_postdeploy_scripts(cli: SalesforceCli) -> Result<()> {
     match get_postdeploy_scripts() {
         Ok(x) => {
             exec_scripts(x, cli);
