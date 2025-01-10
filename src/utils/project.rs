@@ -1,4 +1,4 @@
-use super::system;
+use super::{sf::Cli, system};
 use anyhow::Result;
 use std::{ffi::OsStr, fs};
 
@@ -13,22 +13,21 @@ pub struct Script {
     s_type: ScriptType,
 }
 
-pub fn exec_predeploy_scripts() -> Result<()> {
+pub fn exec_predeploy_scripts(cli: Cli) -> Result<()> {
     match get_predeploy_scripts() {
         Ok(x) => {
-            exec_scripts(x);
+            exec_scripts(x, cli);
             Ok(())
         }
         Err(_) => Ok(()),
     }
 }
 
-fn exec_scripts(scripts: Vec<Script>) {
+fn exec_scripts(scripts: Vec<Script>, mut cli: Cli) {
     for script in scripts {
         match script.s_type {
             ScriptType::Apex => {
-                todo!()
-                // sf::Cli::exec_anonymous(&script.path);
+                cli.exec_anonymous(&script.path);
             }
             ScriptType::Shell => {
                 system::exec_script(&script.path);
@@ -40,10 +39,10 @@ fn exec_scripts(scripts: Vec<Script>) {
     }
 }
 
-pub fn exec_postdeploy_scripts() -> Result<()> {
+pub fn exec_postdeploy_scripts(cli: Cli) -> Result<()> {
     match get_postdeploy_scripts() {
         Ok(x) => {
-            exec_scripts(x);
+            exec_scripts(x, cli);
             Ok(())
         }
         Err(_) => Ok(()),

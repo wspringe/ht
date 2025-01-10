@@ -44,19 +44,16 @@ fn main() -> Result<()> {
             println!("scratch name {}", scratch_org_name);
             let command_run =
                 commands::verify::run(&scratch_org_name, devhub, target_org, &project_config);
-            match command_run {
-                Ok(_) => Ok(()),
-                Err(x) => {
-                    println!("in err");
-                    if target_org.is_none() {
-                        match sf::Cli::new(scratch_org_name.clone()).delete_old_scratch() {
-                            Ok(_) => println!("deleted old scratch"),
-                            Err(x) => println!("why {}", x),
-                        }
-                    }
-                    Err(anyhow!(x))
-                }
+
+            if target_org.is_none() {
+                sf::Cli::new(scratch_org_name.to_owned()).delete_old_scratch()?;
             }
+
+            if command_run.is_err() {
+                return Err(anyhow!(command_run.unwrap_err()));
+            }
+
+            Ok(())
         }
     }
 }

@@ -3,10 +3,13 @@
 use anyhow::anyhow;
 use anyhow::Result;
 use cli_table::format::Justify;
+use cli_table::print_stdout;
 use cli_table::{Cell, Style, Table, TableStruct};
 use enum_as_inner::EnumAsInner;
+use indicatif::ProgressBar;
 use serde::Deserialize;
 use std::process::Stdio;
+use std::time::Duration;
 use std::{
     fmt::{self, Display, Formatter},
     process::Command,
@@ -17,7 +20,7 @@ pub trait SfCliResult {
 }
 
 #[derive(Deserialize, Debug)]
-struct RunTestResult {
+pub struct RunTestResult {
     #[serde(rename = "Outcome")]
     outcome: String,
     #[serde(rename = "Message")]
@@ -33,7 +36,7 @@ struct RunTestResult {
 }
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct RunTestSummary {
+pub struct RunTestSummary {
     test_execution_time: String,
     failing: u32,
     fail_rate: String,
@@ -51,13 +54,13 @@ struct MetadataComponent {
 }
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct DeployDetails {
+pub struct DeployDetails {
     component_successes: Vec<MetadataComponent>,
     component_failures: Vec<MetadataComponent>,
 }
 
 #[derive(Deserialize, Debug)]
-struct ScratchOrgInfo {
+pub struct ScratchOrgInfo {
     #[serde(rename = "Id")]
     id: String,
     #[serde(rename = "Features")]
@@ -161,7 +164,7 @@ impl SfCliResult for SfCliCommandOutput {
             CliResult::ProjectDeployResult { details } => vec![
                 vec![
                     "Is Successful".cell(),
-                    (details.component_failures.len() == 0)
+                    (!details.component_failures.is_empty())
                         .cell()
                         .justify(Justify::Right),
                 ],
@@ -267,15 +270,19 @@ pub fn verify_cli_is_installed() -> Result<()> {
         Err(..) => Err(anyhow!("SF CLI not found")),
     }
 }
+
+#[derive(Clone)]
 pub struct Cli {
     output: String,
     target_org: String,
+    progress_bar: ProgressBar,
 }
 impl Cli {
     pub fn new(target_org: String) -> Self {
         Cli {
             output: String::new(),
             target_org: target_org.clone(),
+            progress_bar: ProgressBar::new_spinner(),
         }
     }
 
@@ -285,6 +292,10 @@ impl Cli {
     }
 
     pub fn create_scratch_org(&mut self, devhub: &String) -> Result<SfCliCommandOutput> {
+        self.progress_bar
+            .to_owned()
+            .with_message("Creating scratch org")
+            .enable_steady_tick(Duration::from_millis(120));
         let output = if self.output.is_empty() {
             let target_org = self.target_org.clone();
             self.get_output(vec![
@@ -312,6 +323,7 @@ impl Cli {
                 command_output.message.unwrap(),
             )));
         }
+        self.progress_bar.finish();
         Ok(command_output)
     }
 
@@ -329,6 +341,10 @@ impl Cli {
     }
 
     pub fn delete_old_scratch(&mut self) -> Result<SfCliCommandOutput> {
+        self.progress_bar
+            .to_owned()
+            .with_message("Deleting scratch org")
+            .enable_steady_tick(Duration::from_millis(120));
         let output = if self.output.is_empty() {
             let target_org = self.target_org.clone();
             self.get_output(vec![
@@ -351,6 +367,7 @@ impl Cli {
                 command_output.message.unwrap(),
             )));
         }
+        self.progress_bar.finish_with_message("Done!");
         Ok(command_output)
     }
 
@@ -380,6 +397,10 @@ impl Cli {
     }
 
     pub fn project_deploy(&mut self, path: &str) -> Result<SfCliCommandOutput> {
+        self.progress_bar
+            .to_owned()
+            .with_message(format!("Deploying metadata from {:?}", path))
+            .enable_steady_tick(Duration::from_millis(120));
         let output = if self.output.is_empty() {
             let target_org = self.target_org.clone();
             self.get_output(vec![
@@ -404,6 +425,7 @@ impl Cli {
                 command_output.message.unwrap(),
             )));
         }
+        self.progress_bar.finish();
         Ok(command_output)
     }
 
@@ -435,6 +457,10 @@ impl Cli {
     }
 
     pub fn run_tests(&mut self) -> Result<SfCliCommandOutput> {
+        self.progress_bar
+            .to_owned()
+            .with_message("Running apex tests")
+            .enable_steady_tick(Duration::from_millis(120));
         let output = if self.output.is_empty() {
             let target_org = self.target_org.clone();
             self.get_output(vec![
@@ -464,6 +490,8 @@ impl Cli {
                 command_output.message.unwrap(),
             )));
         }
+        self.progress_bar.finish();
+        print_stdout(command_output.get_formatted_results())?;
         Ok(command_output)
     }
 
