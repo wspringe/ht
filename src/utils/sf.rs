@@ -1,4 +1,5 @@
 // TODO: refactor into separate modules for each command (makes it easier to handle cli command outputs)
+#![allow(dead_code)]
 
 use anyhow::anyhow;
 use anyhow::Result;
@@ -70,38 +71,38 @@ pub struct ScratchOrgInfo {
 #[derive(Deserialize, EnumAsInner, Debug)]
 #[serde(untagged)]
 pub enum CliResult {
-    CreateScratchOrgResult {
+    CreateScratchOrg {
         username: String,
         #[serde(rename = "scratchOrgInfo")]
         scratch_org_info: ScratchOrgInfo,
         #[serde(rename = "orgId")]
         org_id: String,
     },
-    AuthorizeResult {
+    Authorization {
         username: String,
         #[serde(rename = "instanceUrl")]
         instance_url: String,
     },
-    ProjectDeployResult {
+    ProjectDeploy {
         details: DeployDetails,
     },
     #[serde(rename_all = "camelCase")]
-    ExecuteAnonymousApexResult {
+    ExecuteAnonymousApex {
         success: bool,
         compile_problem: String,
         exception_message: String,
         exception_stack_trace: String,
     },
-    DeleteScratchOrgResult {
+    DeleteScratchOrg {
         username: String,
         #[serde(rename = "orgId")]
         org_id: String,
     },
-    RunApexTestsResult {
+    RunApexTests {
         summary: RunTestSummary,
         tests: Vec<RunTestResult>,
     },
-    PackageInstallResult {
+    PackageInstall {
         #[serde(rename = "Status")]
         status: String,
     },
@@ -109,7 +110,7 @@ pub enum CliResult {
 impl SfCliResult for SfCliCommandOutput {
     fn get_formatted_results(&self) -> TableStruct {
         match self.result.as_ref().unwrap() {
-            CliResult::CreateScratchOrgResult {
+            CliResult::CreateScratchOrg {
                 username,
                 scratch_org_info,
                 ..
@@ -134,7 +135,7 @@ impl SfCliResult for SfCliCommandOutput {
                 "".cell(),
             ])
             .bold(true),
-            CliResult::DeleteScratchOrgResult { username, org_id } => vec![
+            CliResult::DeleteScratchOrg { username, org_id } => vec![
                 vec![
                     "Org Id".cell(),
                     org_id.clone().cell().justify(Justify::Right),
@@ -151,7 +152,7 @@ impl SfCliResult for SfCliCommandOutput {
                 "".cell(),
             ])
             .bold(true),
-            CliResult::AuthorizeResult { .. } => vec![vec![
+            CliResult::Authorization { .. } => vec![vec![
                 "Is Authorized".cell(),
                 (self.status == 0).cell().justify(Justify::Right),
             ]]
@@ -161,7 +162,7 @@ impl SfCliResult for SfCliCommandOutput {
                 "".cell(),
             ])
             .bold(true),
-            CliResult::ProjectDeployResult { details } => vec![
+            CliResult::ProjectDeploy { details } => vec![
                 vec![
                     "Is Successful".cell(),
                     (!details.component_failures.is_empty())
@@ -181,12 +182,9 @@ impl SfCliResult for SfCliCommandOutput {
                 ],
             ]
             .table()
-            .title(vec![
-                "Delete Scratch Org Results".cell().bold(true),
-                "".cell(),
-            ])
+            .title(vec!["Project Deploy Results".cell().bold(true), "".cell()])
             .bold(true),
-            CliResult::ExecuteAnonymousApexResult {
+            CliResult::ExecuteAnonymousApex {
                 compile_problem, ..
             } => vec![
                 vec![
@@ -204,7 +202,7 @@ impl SfCliResult for SfCliCommandOutput {
                 "".cell(),
             ])
             .bold(true),
-            CliResult::RunApexTestsResult { summary, tests } => vec![
+            CliResult::RunApexTests { summary, tests } => vec![
                 vec![
                     "Is Successful".cell(),
                     (summary.failing == 0).cell().justify(Justify::Right),
@@ -291,7 +289,7 @@ impl Cli {
         self
     }
 
-    pub fn create_scratch_org(&mut self, devhub: &String) -> Result<SfCliCommandOutput> {
+    pub fn create_scratch_org(&mut self, devhub: &str) -> Result<SfCliCommandOutput> {
         self.progress_bar
             .to_owned()
             .with_message("Creating scratch org")
@@ -611,18 +609,18 @@ mod tests {
 
         let mut cli = Cli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
-        let command_output = &cli.create_scratch_org(&"devhub".to_string());
+        let command_output = &cli.create_scratch_org("devhub");
         assert!(command_output.is_ok());
 
         let result = command_output.as_ref().unwrap().result.as_ref();
         assert!(result.is_some());
         assert!(matches!(
             result.unwrap(),
-            CliResult::CreateScratchOrgResult { .. }
+            CliResult::CreateScratchOrg { .. }
         ));
         assert_eq!(
             "test@example.com",
-            result.unwrap().as_create_scratch_org_result().unwrap().0
+            result.unwrap().as_create_scratch_org().unwrap().0
         );
         assert!(print_stdout(command_output.as_ref().unwrap().get_formatted_results()).is_ok());
     }
@@ -648,11 +646,11 @@ mod tests {
         assert!(result.is_some());
         assert!(matches!(
             result.unwrap(),
-            CliResult::DeleteScratchOrgResult { .. }
+            CliResult::DeleteScratchOrg { .. }
         ));
         assert_eq!(
             "test@example.com",
-            result.unwrap().as_delete_scratch_org_result().unwrap().0
+            result.unwrap().as_delete_scratch_org().unwrap().0
         );
         assert!(print_stdout(command_output.as_ref().unwrap().get_formatted_results()).is_ok());
     }
@@ -679,15 +677,15 @@ mod tests {
 
         let mut cli = Cli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
-        let command_output = &cli.auth_devhub(&"path".to_string());
+        let command_output = &cli.auth_devhub("path");
         assert!(command_output.is_ok());
 
         let result = command_output.as_ref().unwrap().result.as_ref();
         assert!(result.is_some());
-        assert!(matches!(result.unwrap(), CliResult::AuthorizeResult { .. }));
+        assert!(matches!(result.unwrap(), CliResult::Authorization { .. }));
         assert_eq!(
             "test.com.sandbox",
-            result.unwrap().as_authorize_result().unwrap().0
+            result.unwrap().as_authorization().unwrap().0
         );
         assert!(print_stdout(command_output.as_ref().unwrap().get_formatted_results()).is_ok());
     }
@@ -778,20 +776,17 @@ mod tests {
 
         let mut cli = Cli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
-        let command_output = &cli.project_deploy(&"path".to_string());
+        let command_output = &cli.project_deploy("path");
         assert!(command_output.is_ok());
 
         let result = command_output.as_ref().unwrap().result.as_ref();
         assert!(result.is_some());
-        assert!(matches!(
-            result.unwrap(),
-            CliResult::ProjectDeployResult { .. }
-        ));
+        assert!(matches!(result.unwrap(), CliResult::ProjectDeploy { .. }));
         assert_eq!(
             2,
             result
                 .unwrap()
-                .as_project_deploy_result()
+                .as_project_deploy()
                 .unwrap()
                 .component_successes
                 .len()
@@ -819,30 +814,17 @@ mod tests {
 
         let mut cli = Cli::new(String::from("test"));
         cli.mock_cli_output(String::from(input));
-        let command_output = &cli.exec_anonymous(&"path".to_string());
+        let command_output = &cli.exec_anonymous("path");
         assert!(command_output.is_ok());
 
         let result = command_output.as_ref().unwrap().result.as_ref();
         assert!(result.is_some());
         assert!(matches!(
             result.unwrap(),
-            CliResult::ExecuteAnonymousApexResult { .. }
+            CliResult::ExecuteAnonymousApex { .. }
         ));
-        assert!(
-            result
-                .unwrap()
-                .as_execute_anonymous_apex_result()
-                .unwrap()
-                .0
-        );
-        assert_eq!(
-            "",
-            result
-                .unwrap()
-                .as_execute_anonymous_apex_result()
-                .unwrap()
-                .1
-        );
+        assert!(result.unwrap().as_execute_anonymous_apex().unwrap().0);
+        assert_eq!("", result.unwrap().as_execute_anonymous_apex().unwrap().1);
         assert!(print_stdout(command_output.as_ref().unwrap().get_formatted_results()).is_ok());
     }
 
@@ -938,23 +920,9 @@ mod tests {
 
         let result = command_output.as_ref().unwrap().result.as_ref();
         assert!(result.is_some());
-        assert!(matches!(
-            result.unwrap(),
-            CliResult::RunApexTestsResult { .. }
-        ));
-        assert_eq!(
-            1,
-            result
-                .unwrap()
-                .as_run_apex_tests_result()
-                .unwrap()
-                .0
-                .failing
-        );
-        assert_eq!(
-            2,
-            result.unwrap().as_run_apex_tests_result().unwrap().1.len()
-        );
+        assert!(matches!(result.unwrap(), CliResult::RunApexTests { .. }));
+        assert_eq!(1, result.unwrap().as_run_apex_tests().unwrap().0.failing);
+        assert_eq!(2, result.unwrap().as_run_apex_tests().unwrap().1.len());
         assert!(print_stdout(command_output.as_ref().unwrap().get_formatted_results()).is_ok());
     }
 
@@ -985,13 +953,7 @@ mod tests {
 
         let result = command_output.as_ref().unwrap().result.as_ref();
         assert!(result.is_some());
-        assert!(matches!(
-            result.unwrap(),
-            CliResult::PackageInstallResult { .. }
-        ));
-        assert_eq!(
-            "SUCCESS",
-            result.unwrap().as_package_install_result().unwrap()
-        );
+        assert!(matches!(result.unwrap(), CliResult::PackageInstall { .. }));
+        assert_eq!("SUCCESS", result.unwrap().as_package_install().unwrap());
     }
 }
