@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     fs::{self},
 };
 
@@ -37,19 +37,14 @@ pub struct SalesforceProjectConfig {
 }
 
 #[derive(Debug)]
-struct Version {
-    name: Option<String>,
-    number: String,
-    description: Option<String>,
-}
-
-#[derive(Debug)]
 pub struct Package {
     name: String,
     path: String,
-    version: Version,
-    unpackaged_metadata: Option<String>,
-    dependencies: Option<Vec<PackageDependency>>,
+    version_name: Option<String>,
+    version_description: Option<String>,
+    version_number: String,
+    pub unpackaged_metadata: Option<String>,
+    pub dependencies: Option<Vec<PackageDependency>>,
 }
 
 impl Package {
@@ -63,11 +58,9 @@ impl Package {
         Package {
             name: package_directory.package,
             path: package_directory.path,
-            version: Version {
-                name: package_directory.version_name,
-                number: package_directory.version_number,
-                description: package_directory.version_description,
-            },
+            version_name: package_directory.version_name,
+            version_description: package_directory.version_description,
+            version_number: package_directory.version_number,
             unpackaged_metadata: package_directory.unpackaged_metadata,
             dependencies,
         }
@@ -83,31 +76,63 @@ impl Package {
                 let mut package_dependency = PackageDependency::new();
                 package_dependency.name = dependency.package.to_owned();
 
-                // TODO: refactor
+                let mut package_dependency = PackageDependency::new();
                 if dependency.version_number.is_some() {
-                    let dependency_name = format!(
-                        "{}@{}",
-                        dependency.package,
-                        dependency.version_number.unwrap()
-                    );
+                    let version_number = &dependency.version_number.unwrap();
+                    let trimmed_version_number = Self::get_version_number_from(version_number);
+                    package_dependency.version = Version::from(trimmed_version_number);
+                    let dependency_name = format!("{}@{}", dependency.package, version_number);
                     if let Some(version_id) =
                         package_aliases.to_owned().unwrap().get(&dependency_name)
                     {
                         package_dependency.id = version_id.to_string();
                     }
-                    package_dependencies.push(package_dependency);
                 } else {
+                    let version_number =
+                        &dependency.package.split("@").collect::<Vec<&str>>()[1].to_string();
+                    let trimmed_version_number = Self::get_version_number_from(version_number);
+
+                    package_dependency.version = Version::from(trimmed_version_number);
                     if let Some(version_id) =
                         package_aliases.to_owned().unwrap().get(&dependency.package)
                     {
                         package_dependency.id = version_id.to_string();
                     }
-                    package_dependencies.push(package_dependency);
                 }
+                package_dependencies.push(package_dependency);
             }
             Some(package_dependencies)
         } else {
             None
+        }
+    }
+
+    fn get_version_number_from(source: &String) -> &str {
+        source.split('-').next().unwrap()
+    }
+}
+
+#[derive(Debug)]
+struct Version {
+    major: i32,
+    minor: i32,
+    patch: i32,
+}
+
+impl Version {
+    fn new() -> Version {
+        Version {
+            major: 0,
+            minor: 0,
+            patch: 0,
+        }
+    }
+    fn from(as_string: &str) -> Version {
+        let version = as_string.split('.').collect::<Vec<&str>>();
+        Version {
+            major: version[0].parse().unwrap(),
+            minor: version[1].parse().unwrap(),
+            patch: version[2].parse().unwrap(),
         }
     }
 }
@@ -115,7 +140,7 @@ impl Package {
 #[derive(Debug)]
 pub struct PackageDependency {
     pub name: String,
-    version: String,
+    version: Version,
     pub id: String,
 }
 
@@ -123,7 +148,7 @@ impl PackageDependency {
     fn new() -> PackageDependency {
         PackageDependency {
             name: String::from(""),
-            version: String::from(""),
+            version: Version::new(),
             id: String::from(""),
         }
     }
@@ -135,6 +160,23 @@ impl SalesforceProjectConfig {
     }
     pub fn get_packages(&self) -> &Vec<Package> {
         &self.packages
+    }
+
+    pub fn get_dependencies(&self) -> Option<Vec<PackageDependency>> {
+        let mut dependency_by_name = BTreeMap::new();
+        for package in self.packages {
+            if let Some(dependencies) = package.dependencies {
+                for dependency in dependencies {
+                    match dependency_by_name.get(&dependency.name) {
+                        Some(entry) => {
+                            todo!()
+                        }
+                        None => dependency_by_name.insert(package.name, package),
+                    }
+                }
+            }
+        }
+        todo!()
     }
 }
 

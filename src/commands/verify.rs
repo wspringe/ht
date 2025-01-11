@@ -23,24 +23,17 @@ pub fn run(
     }
 
     for package in project_config.get_packages() {
-        cli.install_package(&package.id)?;
+        for dependency in package.dependencies.unwrap() {
+            cli.install_package(&dependency.id);
+        }
     }
 
-    // deploy unpackaged metadata if unspecified (should be before or after?)
-    if project_config.get_unpackaged_metadata_path().is_some() {
-        cli.project_deploy(
-            &project_config
-                .get_unpackaged_metadata_path()
-                .clone()
-                .unwrap(),
-        )?;
-    }
+    for package in project_config.get_dependencies() {}
 
     project::exec_predeploy_scripts(cli.to_owned())?;
     // deploy metadata
-    for path in project_config.get_paths() {
-        cli.project_deploy(path)?;
-    }
+    for path in project_config.get_paths() {}
+
     project::exec_postdeploy_scripts(cli.to_owned())?;
 
     // run tests
