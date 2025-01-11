@@ -10,7 +10,6 @@ mod project;
 mod project_config;
 mod system;
 
-/// Search for a pattern in a file and display the lines that contain it.
 #[derive(Parser)]
 #[command(about = "Salesforce Build Tool")]
 struct Cli {
@@ -20,12 +19,17 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    #[command(about = "Verifies that the project builds to a scratch org")]
     Verify {
         #[arg(short = 'v', long = "dev-hub")]
         devhub: Option<String>,
         #[arg(short = 'o', long = "target-out")]
         target_org: Option<String>,
     },
+    #[command(about = "Generates a new version of the package")]
+    Version {},
+    #[command(about = "Releases the package")]
+    Release {},
 }
 
 fn main() -> Result<()> {
@@ -56,6 +60,12 @@ fn main() -> Result<()> {
             }
 
             Ok(())
+        }
+        Commands::Version {} => {
+            todo!()
+        }
+        Commands::Release {} => {
+            todo!()
         }
     }
 }

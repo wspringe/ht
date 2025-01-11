@@ -5,12 +5,12 @@
   "sourceApiVersion": "61.0",
   "packageDirectories": [
     {
-      "path": "util",
+      "path": "force-app",
       "default": true,
-      "package": "Expense Manager - Util",
-      "versionName": "Summer ‘24",
-      "versionDescription": "Welcome to Summer 2024 Release of Expense Manager Util Package",
-      "versionNumber": "4.7.0.NEXT",
+      "package": "Test - Package",
+      "versionName": "Test pacakge version",
+      "versionDescription": "Is a test package version",
+      "versionNumber": "1.0.0.NEXT",
       "definitionFile": "config/scratch-org-def.json"
     },
     {
@@ -37,6 +37,8 @@
   "packageAliases": {
     "A": "04tB00000000000000",
     "B@2.0": "04tB00000000000001",
-    "Expense Manager": "0HoB00000004CFuKAM"
+    "Expense Manager": "0HoB00000004CFuKAM",
+    "Test - Package": "0Ho0000000000000001",
+    "Test - Package@1.0.0": "04t00000000000TEST"
   }
 }

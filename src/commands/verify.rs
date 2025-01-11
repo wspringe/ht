@@ -1,13 +1,13 @@
 use crate::cli::sf::SalesforceCli;
 use crate::project;
-use crate::project_config::ProjectConfig;
+use crate::project_config::SalesforceProjectConfig;
 use anyhow::Result;
 
 pub fn run(
     scratch_org_name: &String,
     devhub: &Option<String>,
     target_org: &Option<String>,
-    project_config: &ProjectConfig,
+    project_config: &SalesforceProjectConfig,
 ) -> Result<()> {
     let devhub_alias = match devhub {
         Some(x) => x,
