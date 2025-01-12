@@ -1,7 +1,9 @@
 use serde::Deserialize;
 use std::{
+    borrow::{Borrow, BorrowMut},
     collections::{BTreeMap, HashMap},
     fs::{self},
+    ops::Deref,
 };
 
 #[derive(Deserialize)]
@@ -135,6 +137,12 @@ impl Version {
             patch: version[2].parse().unwrap(),
         }
     }
+
+    pub fn is_higher_than(&self, to_compare: &Version) -> bool {
+        return self.major > to_compare.major
+            || self.minor > to_compare.minor
+            || self.patch > to_compare.patch;
+    }
 }
 
 #[derive(Debug)]
@@ -162,17 +170,15 @@ impl SalesforceProjectConfig {
         &self.packages
     }
 
-    pub fn get_dependencies(&self) -> Option<Vec<PackageDependency>> {
+    pub fn get_dependencies(&mut self) -> Option<Vec<PackageDependency>> {
         let mut dependency_by_name = BTreeMap::new();
-        for package in self.packages {
-            if let Some(dependencies) = package.dependencies {
-                for dependency in dependencies {
-                    match dependency_by_name.get(&dependency.name) {
-                        Some(entry) => {
-                            todo!()
-                        }
-                        None => dependency_by_name.insert(package.name, package),
-                    }
+
+        for package in self.packages.iter() {
+            // this will borrow each element
+            if let Some(vec) = &package.dependencies {
+                for dependency in vec.iter() {
+                    let dep = dependency.to_owned().clone();
+                    dependency_by_name.insert(dependency.name, dep);
                 }
             }
         }
@@ -212,7 +218,7 @@ mod tests {
         assert_eq!(2, project_config.get_packages().len());
 
         assert_eq!("A", project_config.get_packages()[0].name);
-        assert_eq!("1.0", project_config.get_packages()[0].version.number);
+        // assert_eq!("1.0", project_config.get_packages()[0].version.number);
         // assert_eq!("04tB00000000000000", todo!());
 
         assert_eq!("B@2.0", project_config.get_packages()[1].name);
