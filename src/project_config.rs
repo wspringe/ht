@@ -114,7 +114,7 @@ impl Package {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Version {
     major: i32,
     minor: i32,
@@ -145,7 +145,7 @@ impl Version {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PackageDependency {
     pub name: String,
     version: Version,
@@ -171,18 +171,35 @@ impl SalesforceProjectConfig {
     }
 
     pub fn get_dependencies(&mut self) -> Option<Vec<PackageDependency>> {
-        let mut dependency_by_name = BTreeMap::new();
+        let mut dependency_by_name: BTreeMap<String, PackageDependency> = BTreeMap::new();
 
         for package in self.packages.iter() {
-            // this will borrow each element
             if let Some(vec) = &package.dependencies {
                 for dependency in vec.iter() {
                     let dep = dependency.to_owned().clone();
-                    dependency_by_name.insert(dependency.name, dep);
+                    let dep2 = dependency.clone();
+                    let name = dependency.name.clone();
+                    dependency_by_name
+                        .entry(name)
+                        .and_modify(|val| {
+                            if dep.version.is_higher_than(&val.version) {
+                                *val = dep;
+                            }
+                        })
+                        .or_insert(dep2);
                 }
             }
         }
-        todo!()
+
+        if dependency_by_name.is_empty() {
+            None
+        } else {
+            let mut to_return: Vec<PackageDependency> = Vec::new();
+            dependency_by_name.into_iter().for_each(|(_key, value)| {
+                to_return.push(value.clone());
+            });
+            Some(to_return)
+        }
     }
 }
 
