@@ -7,7 +7,7 @@ pub fn run(
     scratch_org_name: &String,
     devhub: &Option<String>,
     target_org: &Option<String>,
-    project_config: &SalesforceProjectConfig,
+    project_config: &mut SalesforceProjectConfig,
 ) -> Result<()> {
     let devhub_alias = match devhub {
         Some(x) => x,
@@ -22,17 +22,22 @@ pub fn run(
         cli = SalesforceCli::new(target_org.to_owned().unwrap());
     }
 
-    for package in project_config.get_packages() {
-        for dependency in package.dependencies.unwrap() {
-            cli.install_package(&dependency.id);
+    if let Some(dependencies) = project_config.get_dependencies() {
+        for dependency in dependencies {
+            cli.install_package(dependency.id.as_str())?;
         }
     }
 
-    for package in project_config.get_dependencies() {}
-
     project::exec_predeploy_scripts(cli.to_owned())?;
     // deploy metadata
-    for path in project_config.get_paths() {}
+    for package in project_config.get_packages() {
+        if let Some(path) = &package.unpackaged_metadata {
+            cli.project_deploy(path.as_str())?;
+        }
+    }
+    for package in project_config.get_packages() {
+        cli.project_deploy(package.path.as_str())?;
+    }
 
     project::exec_postdeploy_scripts(cli.to_owned())?;
 

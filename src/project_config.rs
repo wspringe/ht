@@ -1,9 +1,7 @@
 use serde::Deserialize;
 use std::{
-    borrow::{Borrow, BorrowMut},
     collections::{BTreeMap, HashMap},
     fs::{self},
-    ops::Deref,
 };
 
 #[derive(Deserialize)]
@@ -41,7 +39,7 @@ pub struct SalesforceProjectConfig {
 #[derive(Debug)]
 pub struct Package {
     name: String,
-    path: String,
+    pub path: String,
     version_name: Option<String>,
     version_description: Option<String>,
     version_number: String,
@@ -109,7 +107,7 @@ impl Package {
         }
     }
 
-    fn get_version_number_from(source: &String) -> &str {
+    fn get_version_number_from(source: &str) -> &str {
         source.split('-').next().unwrap()
     }
 }
@@ -139,9 +137,9 @@ impl Version {
     }
 
     pub fn is_higher_than(&self, to_compare: &Version) -> bool {
-        return self.major > to_compare.major
+        self.major > to_compare.major
             || self.minor > to_compare.minor
-            || self.patch > to_compare.patch;
+            || self.patch > to_compare.patch
     }
 }
 
@@ -176,17 +174,15 @@ impl SalesforceProjectConfig {
         for package in self.packages.iter() {
             if let Some(vec) = &package.dependencies {
                 for dependency in vec.iter() {
-                    let dep = dependency.to_owned().clone();
-                    let dep2 = dependency.clone();
-                    let name = dependency.name.clone();
+                    let dep = dependency.clone();
                     dependency_by_name
-                        .entry(name)
+                        .entry(dependency.clone().name)
                         .and_modify(|val| {
-                            if dep.version.is_higher_than(&val.version) {
-                                *val = dep;
+                            if dependency.version.is_higher_than(&val.version) {
+                                *val = dependency.clone();
                             }
                         })
-                        .or_insert(dep2);
+                        .or_insert(dep);
                 }
             }
         }
@@ -195,7 +191,7 @@ impl SalesforceProjectConfig {
             None
         } else {
             let mut to_return: Vec<PackageDependency> = Vec::new();
-            dependency_by_name.into_iter().for_each(|(_key, value)| {
+            dependency_by_name.iter().for_each(|(_key, value)| {
                 to_return.push(value.clone());
             });
             Some(to_return)

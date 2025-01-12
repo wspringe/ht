@@ -38,7 +38,7 @@ fn main() -> Result<()> {
         Ok(_) => (),
         Err(x) => return Err(anyhow!(x)),
     }
-    let project_config = project_config::read(None);
+    let mut project_config = project_config::read(None);
 
     match &cli.command {
         Commands::Verify { devhub, target_org } => {
@@ -49,7 +49,7 @@ fn main() -> Result<()> {
             );
             println!("scratch name {}", scratch_org_name);
             let command_run =
-                commands::verify::run(&scratch_org_name, devhub, target_org, &project_config);
+                commands::verify::run(&scratch_org_name, devhub, target_org, &mut project_config);
 
             if target_org.is_none() {
                 sf::SalesforceCli::new(scratch_org_name.to_owned()).delete_old_scratch()?;
