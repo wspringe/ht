@@ -1,3 +1,5 @@
+use anyhow::anyhow;
+use anyhow::Result;
 use serde::Deserialize;
 use std::{
     collections::{BTreeMap, HashMap},
@@ -42,9 +44,10 @@ pub struct Package {
     pub path: String,
     version_name: Option<String>,
     version_description: Option<String>,
-    version_number: String,
+    pub version_number: String,
     pub unpackaged_metadata: Option<String>,
     pub dependencies: Option<Vec<PackageDependency>>,
+    pub default: Option<bool>,
 }
 
 impl Package {
@@ -63,6 +66,7 @@ impl Package {
             version_number: package_directory.version_number,
             unpackaged_metadata: package_directory.unpackaged_metadata,
             dependencies,
+            default: package_directory.default,
         }
     }
 
@@ -113,21 +117,21 @@ impl Package {
 }
 
 #[derive(Debug, Clone)]
-struct Version {
-    major: i32,
-    minor: i32,
-    patch: i32,
+pub struct Version {
+    pub major: i32,
+    pub minor: i32,
+    pub patch: i32,
 }
 
 impl Version {
-    fn new() -> Version {
+    pub fn new() -> Version {
         Version {
             major: 0,
             minor: 0,
             patch: 0,
         }
     }
-    fn from(as_string: &str) -> Version {
+    pub fn from(as_string: &str) -> Version {
         let version = as_string.split('.').collect::<Vec<&str>>();
         Version {
             major: version[0].parse().unwrap(),
@@ -196,6 +200,26 @@ impl SalesforceProjectConfig {
             });
             Some(to_return)
         }
+    }
+
+    pub fn get_default_package(&self) -> &Package {
+        for package in &self.packages {
+            if let Some(_is_default) = package.default {
+                return package;
+            }
+        }
+
+        &self.packages[0]
+    }
+
+    pub fn get_package(&self, name: &str) -> Result<&Package> {
+        for package in &self.packages {
+            if package.name == name {
+                return Ok(package);
+            }
+        }
+
+        Err(anyhow!("Package with name not found"))
     }
 }
 
