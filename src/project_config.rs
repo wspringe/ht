@@ -1,19 +1,23 @@
 use anyhow::anyhow;
 use anyhow::Result;
-use serde::Deserialize;
+use core::fmt;
+use serde::{Deserialize, Serialize};
+use std::borrow::BorrowMut;
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::{
     collections::{BTreeMap, HashMap},
     fs::{self},
 };
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ProjectJson {
     name: String,
     package_directories: Vec<PackageDirectory>,
     package_aliases: Option<HashMap<String, String>>,
 }
-#[derive(Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct PackageDirectory {
     dependencies: Option<Vec<Dependency>>,
@@ -23,9 +27,13 @@ struct PackageDirectory {
     version_name: Option<String>,
     version_description: Option<String>,
     default: Option<bool>,
-    unpackaged_metadata: Option<String>,
+    unpackaged_metadata: Option<String>, // this is an object for some reason
+    release_notes_url: Option<String>,
+    post_install_url: Option<String>,
+    scope_profiles: Option<bool>,
+    definition_file: Option<String>,
 }
-#[derive(Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct Dependency {
     package: String,
@@ -48,6 +56,10 @@ pub struct Package {
     pub unpackaged_metadata: Option<String>,
     pub dependencies: Option<Vec<PackageDependency>>,
     pub default: Option<bool>,
+    release_notes_url: Option<String>,
+    post_install_url: Option<String>,
+    scope_profiles: Option<bool>,
+    definition_file: Option<String>,
 }
 
 impl Package {
@@ -67,6 +79,10 @@ impl Package {
             unpackaged_metadata: package_directory.unpackaged_metadata,
             dependencies,
             default: package_directory.default,
+            release_notes_url: package_directory.release_notes_url,
+            post_install_url: package_directory.post_install_url,
+            scope_profiles: package_directory.scope_profiles,
+            definition_file: package_directory.definition_file,
         }
     }
 
@@ -114,6 +130,10 @@ impl Package {
     fn get_version_number_from(source: &str) -> &str {
         source.split('-').next().unwrap()
     }
+
+    pub fn set_version(&mut self, version: &Version) {
+        self.version_number = version.to_string()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -144,6 +164,12 @@ impl Version {
         self.major > to_compare.major
             || self.minor > to_compare.minor
             || self.patch > to_compare.patch
+    }
+}
+
+impl Display for Version {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
     }
 }
 
@@ -202,20 +228,23 @@ impl SalesforceProjectConfig {
         }
     }
 
-    pub fn get_default_package(&self) -> &Package {
-        for package in &self.packages {
+    pub fn get_default_package(&mut self) -> Result<&mut Package> {
+        for package in self.packages.iter_mut() {
             if let Some(_is_default) = package.default {
-                return package;
+                if _is_default {
+                    return Ok(package);
+                }
+            } else {
+                return Ok(package);
             }
         }
-
-        &self.packages[0]
+        Err(anyhow!("could not find a default package"))
     }
 
-    pub fn get_package(&self, name: &str) -> Result<&Package> {
-        for package in &self.packages {
+    pub fn get_package(&mut self, name: &str) -> Result<&mut Package> {
+        for package in &mut self.packages {
             if package.name == name {
-                return Ok(package);
+                return Ok(package.borrow_mut());
             }
         }
 
@@ -243,6 +272,11 @@ pub fn read(path: Option<String>) -> SalesforceProjectConfig {
     }
 
     project_config
+}
+
+pub fn write(project_config: &SalesforceProjectConfig) {
+    // serde_json::to_string(project_config);
+    todo!("need to write new version number back to project json")
 }
 
 #[cfg(test)]

@@ -275,10 +275,10 @@ pub struct SalesforceCli {
     progress_bar: ProgressBar,
 }
 impl SalesforceCli {
-    pub fn new(target_org: String) -> Self {
+    pub fn new(target_org: Option<String>) -> Self {
         SalesforceCli {
             output: String::new(),
-            target_org: target_org.clone(),
+            target_org: target_org.unwrap_or(String::from("")),
             progress_bar: ProgressBar::new_spinner(),
         }
     }
@@ -336,6 +336,30 @@ impl SalesforceCli {
             Ok(x) => Ok(String::from_utf8(x.stdout)?),
             Err(e) => Err(anyhow!(SfCliError).context(e.to_string())),
         }
+    }
+
+    pub fn create_package_version(&mut self, devhub: &str) -> Result<SfCliCommandOutput> {
+        self.progress_bar
+            .to_owned()
+            .with_message("Creating package version")
+            .enable_steady_tick(Duration::from_millis(120));
+        let output = if self.output.is_empty() {
+            self.get_output(vec!["package", "version", "create", "-v", devhub, "--json"])?
+        } else {
+            self.output.clone()
+        };
+
+        let command_output: SfCliCommandOutput = serde_json::from_str(output.as_str())
+            .expect("could not deserialize sf cli command output");
+        if command_output.status != 0 {
+            return Err(anyhow!(SfCliError).context(format!(
+                "could not create scratch org: {}",
+                command_output.message.unwrap(),
+            )));
+        }
+        self.progress_bar
+            .finish_with_message("Created package version");
+        Ok(command_output)
     }
 
     pub fn delete_old_scratch(&mut self) -> Result<SfCliCommandOutput> {
@@ -616,7 +640,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = SalesforceCli::new(String::from("test"));
+        let mut cli = SalesforceCli::new(Some(String::from("test")));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.create_scratch_org("devhub");
         assert!(command_output.is_ok());
@@ -646,7 +670,7 @@ mod tests {
         }
 "#;
 
-        let mut cli = SalesforceCli::new(String::from("test"));
+        let mut cli = SalesforceCli::new(Some(String::from("test")));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.delete_old_scratch();
         assert!(command_output.is_ok());
@@ -684,7 +708,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = SalesforceCli::new(String::from("test"));
+        let mut cli = SalesforceCli::new(Some(String::from("test")));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.auth_devhub("path");
         assert!(command_output.is_ok());
@@ -783,7 +807,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = SalesforceCli::new(String::from("test"));
+        let mut cli = SalesforceCli::new(Some(String::from("test")));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.project_deploy("path");
         assert!(command_output.is_ok());
@@ -821,7 +845,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = SalesforceCli::new(String::from("test"));
+        let mut cli = SalesforceCli::new(Some(String::from("test")));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.exec_anonymous("path");
         assert!(command_output.is_ok());
@@ -922,7 +946,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = SalesforceCli::new(String::from("test"));
+        let mut cli = SalesforceCli::new(Some(String::from("test")));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.run_tests();
         assert!(command_output.is_ok());
@@ -955,7 +979,7 @@ mod tests {
 }
 "#;
 
-        let mut cli = SalesforceCli::new(String::from("test"));
+        let mut cli = SalesforceCli::new(Some(String::from("test")));
         cli.mock_cli_output(String::from(input));
         let command_output = &cli.install_package(&String::from("id"));
         assert!(command_output.is_ok());

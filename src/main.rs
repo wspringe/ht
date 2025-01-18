@@ -52,7 +52,7 @@ fn main() -> Result<()> {
                 commands::verify::run(&scratch_org_name, devhub, target_org, &mut project_config);
 
             if target_org.is_none() {
-                sf::SalesforceCli::new(scratch_org_name.to_owned()).delete_old_scratch()?;
+                sf::SalesforceCli::new(Some(scratch_org_name.to_owned())).delete_old_scratch()?;
             }
 
             if command_run.is_err() {

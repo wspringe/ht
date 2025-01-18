@@ -16,10 +16,10 @@ pub fn run(
 
     let mut cli: SalesforceCli;
     if target_org.is_none() {
-        cli = SalesforceCli::new(scratch_org_name.to_owned());
+        cli = SalesforceCli::new(Some(scratch_org_name.to_owned()));
         cli.create_scratch_org(devhub_alias)?;
     } else {
-        cli = SalesforceCli::new(target_org.to_owned().unwrap());
+        cli = SalesforceCli::new(Some(target_org.to_owned().unwrap()));
     }
 
     if let Some(dependencies) = project_config.get_dependencies() {

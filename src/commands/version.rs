@@ -1,9 +1,12 @@
 use anyhow::Result;
 use git2::Repository;
 
-use crate::project_config::{SalesforceProjectConfig, Version};
+use crate::{
+    cli::sf::SalesforceCli,
+    project_config::{Package, SalesforceProjectConfig, Version},
+};
 
-pub fn run(project_config: &SalesforceProjectConfig) -> Result<()> {
+pub fn run(project_config: &mut SalesforceProjectConfig) -> Result<()> {
     // figure out which package you want
     let repo = Repository::open(".").unwrap();
     let head = repo.message().unwrap(); // if this doesn't work, need to revwalk
@@ -17,25 +20,29 @@ pub fn run(project_config: &SalesforceProjectConfig) -> Result<()> {
         ""
     };
 
-    let to_upgrade = match project_config.get_package(package_name) {
+    let to_upgrade: &mut Package = match project_config.get_package(package_name) {
         Ok(package) => package,
-        Err(_) => project_config.get_default_package(),
+        Err(_) => project_config.get_default_package()?,
     };
 
-    let mut version = Version::from(&to_upgrade.version_number);
-    let split_again = ["feat:", "blah"];
+    // get commit prefix and bump version
+    let commit_prefix = split[0].split('(').collect::<Vec<&str>>()[0];
+    let current_version = Version::from(&to_upgrade.version_number);
+    let mut new_version = current_version.clone();
 
-    if split_again[0].contains("!") {
-        version.major += 1;
-    } else if split_again[0].contains("feat") {
-        version.minor += 1;
-    } else {
-        version.patch += 1;
+    if commit_prefix.contains("!") {
+        new_version.major += 1;
+    } else if commit_prefix.contains("feat") {
+        new_version.minor += 1;
+    } else if commit_prefix.contains("fix") {
+        new_version.patch += 1;
     }
+    to_upgrade.set_version(&new_version);
 
-    // get current version
-    // generate next version based on conventional commit
+    // update json
     // create new version of unlocked package
+    let cli = SalesforceCli::new(None);
+    // cli.create_package_version(devhub);
     // create new commmit and tag it with new version
     todo!()
 }
