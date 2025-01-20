@@ -1,12 +1,15 @@
+use std::{collections::HashMap, fs, io::Write};
+
 use anyhow::Result;
 use git2::Repository;
+use serde_json::{json, Value};
 
 use crate::{
     cli::sf::SalesforceCli,
     project_config::{Package, SalesforceProjectConfig, Version},
 };
 
-pub fn run(project_config: &mut SalesforceProjectConfig) -> Result<()> {
+pub fn run(project_config: &mut SalesforceProjectConfig, devhub: &str) -> Result<()> {
     // figure out which package you want
     let repo = Repository::open(".").unwrap();
     let head = repo.message().unwrap(); // if this doesn't work, need to revwalk
@@ -40,9 +43,38 @@ pub fn run(project_config: &mut SalesforceProjectConfig) -> Result<()> {
     to_upgrade.set_version(&new_version);
 
     // update json
+    let project_json_path = String::from("./sfdx-project.json");
+    let mut file = fs::read_to_string(project_json_path).expect("Did not find sfdx-project.json");
+    let mut config: HashMap<String, Value> =
+        serde_json::from_str(&file).expect("unable to parse json");
+    for package_dir in config
+        .get_mut("packageDirectories")
+        .unwrap()
+        .as_array_mut()
+        .unwrap()
+    {
+        if package_dir.get_mut("package").unwrap().as_str().unwrap() == to_upgrade.name {
+            let version_number = package_dir.get_mut("versionNumber").unwrap();
+            *version_number = json!(new_version.to_string());
+        }
+    }
+
+    let json_string = serde_json::to_string(&config)?;
+    let mut f = fs::OpenOptions::new()
+        .write(true)
+        .open("./sfdx-project.json")
+        .expect("should have opened the sfdx project file");
+    f.write_all(&json_string.into_bytes())
+        .expect("should have overwrote the sfdx project json file");
+    f.flush()?;
+
     // create new version of unlocked package
-    let cli = SalesforceCli::new(None);
-    // cli.create_package_version(devhub);
+    let mut cli = SalesforceCli::new(None);
+    cli.create_package_version(devhub)?;
     // create new commmit and tag it with new version
+    repo.commit(None, None, None, "ci(ht): bump version", None, None);
+    repo.tag(&new_version.to_string(), target, tagger, message, force);
+    repo.push();
+    // https://users.rust-lang.org/t/using-git2-to-clone-create-a-branch-and-push-a-branch-to-github/100292
     todo!()
 }

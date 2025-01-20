@@ -48,7 +48,7 @@ pub struct SalesforceProjectConfig {
 
 #[derive(Debug)]
 pub struct Package {
-    name: String,
+    pub name: String,
     pub path: String,
     version_name: Option<String>,
     version_description: Option<String>,
