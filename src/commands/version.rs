@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fs, io::Write};
 
 use anyhow::Result;
-use git2::Repository;
+use git2::{IndexAddOption, Repository, Signature};
 use serde_json::{json, Value};
 
 use crate::{
@@ -9,7 +9,7 @@ use crate::{
     project_config::{Package, SalesforceProjectConfig, Version},
 };
 
-pub fn run(project_config: &mut SalesforceProjectConfig, devhub: &str) -> Result<()> {
+pub fn run(project_config: &mut SalesforceProjectConfig, dry_run: &Option<bool>) -> Result<()> {
     // figure out which package you want
     let repo = Repository::open(".").unwrap();
     let head = repo.message().unwrap(); // if this doesn't work, need to revwalk
@@ -70,11 +70,32 @@ pub fn run(project_config: &mut SalesforceProjectConfig, devhub: &str) -> Result
 
     // create new version of unlocked package
     let mut cli = SalesforceCli::new(None);
-    cli.create_package_version(devhub)?;
+    if !dry_run.is_some_and(|x| x) {
+        cli.create_package_version("")?;
+    }
     // create new commmit and tag it with new version
-    repo.commit(None, None, None, "ci(ht): bump version", None, None);
-    repo.tag(&new_version.to_string(), target, tagger, message, force);
-    repo.push();
     // https://users.rust-lang.org/t/using-git2-to-clone-create-a-branch-and-push-a-branch-to-github/100292
-    todo!()
+    create_commit(&repo);
+    Ok(())
+}
+
+fn create_commit(repo: &Repository) {
+    // stage changes
+    let mut index = repo.index().unwrap();
+    index.add_all(&["."], IndexAddOption::DEFAULT, None);
+    index.write().unwrap();
+
+    let signature = repo.signature().unwrap();
+    let tree = repo.find_tree(index.write_tree().unwrap()).unwrap();
+    let parent_commit = repo.head().unwrap().peel_to_commit().unwrap();
+
+    let commit_oid = repo.commit(
+        Some("HEAD"),
+        &signature,
+        &signature,
+        "ci: making new version",
+        &tree,
+        &[&parent_commit],
+    );
+    dbg!(&commit_oid);
 }

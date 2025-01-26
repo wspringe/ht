@@ -27,7 +27,10 @@ enum Commands {
         target_org: Option<String>,
     },
     #[command(about = "Generates a new version of the package")]
-    Version {},
+    Version {
+        #[arg(long = "dry-run")]
+        dry_run: Option<bool>,
+    },
     #[command(about = "Releases the package")]
     Release {},
 }
@@ -61,9 +64,7 @@ fn main() -> Result<()> {
 
             Ok(())
         }
-        Commands::Version {} => {
-            todo!()
-        }
+        Commands::Version { dry_run } => commands::version::run(&mut project_config, dry_run),
         Commands::Release {} => {
             todo!()
         }
