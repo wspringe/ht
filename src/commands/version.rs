@@ -9,12 +9,17 @@ use crate::{
     project_config::{Package, SalesforceProjectConfig, Version},
 };
 
-pub fn run(project_config: &mut SalesforceProjectConfig, dry_run: &Option<bool>) -> Result<()> {
+pub fn run(project_config: &mut SalesforceProjectConfig, dry_run: &bool) -> Result<()> {
     // figure out which package you want
     let repo = Repository::open(".").unwrap();
-    let head = repo.message().unwrap(); // if this doesn't work, need to revwalk
+    let head = repo.head().unwrap();
+    let oid = head.target().unwrap();
+    let commit = repo.find_commit(oid).unwrap();
+    dbg!(&commit);
+    let message = commit.message().unwrap();
+    dbg!(&message);
 
-    let split = &head.split(':').collect::<Vec<&str>>();
+    let split = &message.split(':').collect::<Vec<&str>>();
     let package_name = if split[0].contains('(') {
         let start_bytes = split[0].find('(').unwrap() + 1;
         let end_bytes = split[0].find(')').unwrap() - 1;
@@ -47,6 +52,7 @@ pub fn run(project_config: &mut SalesforceProjectConfig, dry_run: &Option<bool>)
     let mut file = fs::read_to_string(project_json_path).expect("Did not find sfdx-project.json");
     let mut config: HashMap<String, Value> =
         serde_json::from_str(&file).expect("unable to parse json");
+    dbg!(&config);
     for package_dir in config
         .get_mut("packageDirectories")
         .unwrap()
@@ -59,7 +65,8 @@ pub fn run(project_config: &mut SalesforceProjectConfig, dry_run: &Option<bool>)
         }
     }
 
-    let json_string = serde_json::to_string(&config)?;
+    let json_string = serde_json::to_string_pretty(&config)?;
+    dbg!(&json_string);
     let mut f = fs::OpenOptions::new()
         .write(true)
         .open("./sfdx-project.json")
@@ -70,7 +77,7 @@ pub fn run(project_config: &mut SalesforceProjectConfig, dry_run: &Option<bool>)
 
     // create new version of unlocked package
     let mut cli = SalesforceCli::new(None);
-    if !dry_run.is_some_and(|x| x) {
+    if !dry_run {
         cli.create_package_version("")?;
     }
     // create new commmit and tag it with new version

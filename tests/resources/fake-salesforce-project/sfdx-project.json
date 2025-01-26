@@ -1,8 +1,10 @@
 {
   "packageDirectories": [
     {
+      "package": "fake-salesforce-project",
       "path": "force-app",
-      "default": true
+      "default": true,
+      "versionNumber": "1.1.1.NEXT"
     }
   ],
   "name": "fake-salesforce-project",

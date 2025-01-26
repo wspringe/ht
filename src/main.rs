@@ -11,7 +11,7 @@ mod project_config;
 mod system;
 
 #[derive(Parser)]
-#[command(about = "Salesforce Build Tool")]
+#[clap(name = "HT", about = "Salesforce Build Tool")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -19,17 +19,15 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    #[command(about = "Verifies that the project builds to a scratch org")]
     Verify {
         #[arg(short = 'v', long = "dev-hub")]
         devhub: Option<String>,
         #[arg(short = 'o', long = "target-out")]
         target_org: Option<String>,
     },
-    #[command(about = "Generates a new version of the package")]
     Version {
         #[arg(long = "dry-run")]
-        dry_run: Option<bool>,
+        dry_run: bool,
     },
     #[command(about = "Releases the package")]
     Release {},
