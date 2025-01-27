@@ -2,6 +2,7 @@ use std::{collections::HashMap, fs, io::Write};
 
 use anyhow::Result;
 use git2::{IndexAddOption, Repository, Signature};
+use indexmap::IndexMap;
 use serde_json::{json, Value};
 
 use crate::{
@@ -50,7 +51,7 @@ pub fn run(project_config: &mut SalesforceProjectConfig, dry_run: &bool) -> Resu
     // update json
     let project_json_path = String::from("./sfdx-project.json");
     let mut file = fs::read_to_string(project_json_path).expect("Did not find sfdx-project.json");
-    let mut config: HashMap<String, Value> =
+    let mut config: IndexMap<String, Value> =
         serde_json::from_str(&file).expect("unable to parse json");
     dbg!(&config);
     for package_dir in config
@@ -69,6 +70,7 @@ pub fn run(project_config: &mut SalesforceProjectConfig, dry_run: &bool) -> Resu
     dbg!(&json_string);
     let mut f = fs::OpenOptions::new()
         .write(true)
+        .truncate(true)
         .open("./sfdx-project.json")
         .expect("should have opened the sfdx project file");
     f.write_all(&json_string.into_bytes())
