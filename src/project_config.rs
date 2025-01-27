@@ -136,7 +136,7 @@ impl Package {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Version {
     pub major: i32,
     pub minor: i32,
@@ -272,11 +272,6 @@ pub fn read(path: Option<String>) -> SalesforceProjectConfig {
     }
 
     project_config
-}
-
-pub fn write(project_config: &SalesforceProjectConfig) {
-    // serde_json::to_string(project_config);
-    todo!("need to write new version number back to project json")
 }
 
 #[cfg(test)]
