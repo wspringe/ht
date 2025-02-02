@@ -12,6 +12,7 @@ use crate::{
 pub fn run(
     project_config: &mut SalesforceProjectConfig,
     dry_run: &bool,
+    push: &bool,
     devhub: &Option<String>,
 ) -> Result<()> {
     if !dry_run && devhub.is_none() {
@@ -47,6 +48,11 @@ pub fn run(
 
         create_commit(&repo)?;
         tag_commit(&repo, &new_version)?;
+
+        if *push {
+            let mut origin = repo.find_remote("origin")?;
+            origin.push(&[String::new()], None);
+        }
     }
     Ok(())
 }
@@ -144,5 +150,6 @@ fn tag_commit(repo: &Repository, version: &Version) -> Result<()> {
         &version.to_string(),
         false,
     )?;
+
     Ok(())
 }

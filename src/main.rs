@@ -30,6 +30,8 @@ enum Commands {
         dry_run: bool,
         #[arg(short = 'v', long = "devhub")]
         devhub: Option<String>,
+        #[arg(long = "push", help = "Git push after committing")]
+        push: bool,
     },
     #[command(about = "Releases the package")]
     Release {},
@@ -64,9 +66,11 @@ fn main() -> Result<()> {
 
             Ok(())
         }
-        Commands::Version { dry_run, devhub } => {
-            commands::version::run(&mut project_config, dry_run, devhub)
-        }
+        Commands::Version {
+            dry_run,
+            devhub,
+            push,
+        } => commands::version::run(&mut project_config, dry_run, push, devhub),
         Commands::Release {} => {
             todo!()
         }
