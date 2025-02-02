@@ -20,7 +20,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     Verify {
-        #[arg(short = 'v', long = "dev-hub")]
+        #[arg(short = 'v', long = "devhub")]
         devhub: Option<String>,
         #[arg(short = 'o', long = "target-out")]
         target_org: Option<String>,
@@ -28,6 +28,8 @@ enum Commands {
     Version {
         #[arg(long = "dry-run")]
         dry_run: bool,
+        #[arg(short = 'v', long = "devhub")]
+        devhub: Option<String>,
     },
     #[command(about = "Releases the package")]
     Release {},
@@ -62,7 +64,9 @@ fn main() -> Result<()> {
 
             Ok(())
         }
-        Commands::Version { dry_run } => commands::version::run(&mut project_config, dry_run),
+        Commands::Version { dry_run, devhub } => {
+            commands::version::run(&mut project_config, dry_run, devhub)
+        }
         Commands::Release {} => {
             todo!()
         }

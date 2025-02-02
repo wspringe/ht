@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use git2::{IndexAddOption, Repository};
 use indexmap::IndexMap;
 use serde_json::{json, Value};
@@ -9,8 +9,15 @@ use crate::{
     project_config::{Package, SalesforceProjectConfig, Version},
 };
 
-pub fn run(project_config: &mut SalesforceProjectConfig, dry_run: &bool) -> Result<()> {
-    // figure out which package you want
+pub fn run(
+    project_config: &mut SalesforceProjectConfig,
+    dry_run: &bool,
+    devhub: &Option<String>,
+) -> Result<()> {
+    if !dry_run && devhub.is_none() {
+        return Err(anyhow!("devhub is required"));
+    }
+
     let repo = Repository::open(".").unwrap();
     let message = get_latest_commit_message(&repo);
 
@@ -35,7 +42,7 @@ pub fn run(project_config: &mut SalesforceProjectConfig, dry_run: &bool) -> Resu
 
         if !dry_run {
             let mut cli = SalesforceCli::new(None);
-            cli.create_package_version("")?;
+            cli.create_package_version(devhub.as_ref().unwrap())?;
         }
 
         create_commit(&repo)?;
