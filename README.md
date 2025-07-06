@@ -4,7 +4,7 @@
   <br>
 </h1>
 
-<h4 align="center">A simple CLI tool to support and automate deployments for Salesforce.</h4>
+<h4 align="center">A simple CLI tool to support and automate [Salesforce unlocked package](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_unlocked_pkg_create_pkg.htm) builds.
 
 <p align="center">
   <a href="#key-features">Key Features</a> •
@@ -14,9 +14,11 @@
 ## Key Features
 
 * `ht verify`
-  - Builds your sfdx source project to a sandbox of your choosing.
+  - Builds your sfdx source project to a scratch org.
     - Handles running of pre- and post-deployment anonymous apex scripts
-    - Installs dependendent packages 
+    - Installs dependendent packages
+    - Pushes source
+    - Runs tests
 * `ht version`
   - Creates a new version of your package. Requires [conventional commit](https://www.conventionalcommits.org/en/v1.0.0/) format to generate the next version number.
     - Option to tag and/or create a commit with the new package version
