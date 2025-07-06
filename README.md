@@ -4,7 +4,7 @@
   <br>
 </h1>
 
-<h4 align="center">A simple CLI tool to support and automate [Salesforce unlocked package](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_unlocked_pkg_create_pkg.htm) builds.
+<h4 align="center">A simple CLI tool to support and automate Salesforce unlocked package builds.
 
 <p align="center">
   <a href="#key-features">Key Features</a> •
